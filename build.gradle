@@ -1,0 +1,23 @@
+plugins {
+    id 'base'
+}
+
+allprojects {
+    group = rootProject.maven_group
+    version = rootProject.mod_version
+}
+
+subprojects {
+    repositories {
+        mavenCentral()
+        maven { url = 'https://api.modrinth.com/maven' }
+    }
+}
+
+tasks.named('build') {
+    dependsOn ':engine:build', ':client:build'
+}
+
+tasks.named('check') {
+    dependsOn ':engine:check', ':client:check'
+}

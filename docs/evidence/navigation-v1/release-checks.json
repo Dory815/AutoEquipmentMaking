@@ -1,0 +1,217 @@
+{
+  "artifact": "D:\\MC\\AutoEquipmentMaking\\client\\build\\libs\\auto-equipment-making-client-1.0.0.jar",
+  "sha256": "df53234249c4377a09c9ef8a42c8f25f2c65cc54275f9467eeec0654dd2d3ca0",
+  "compiledClassesMatched": 66,
+  "gameTestsExcluded": true,
+  "engineTests": 9,
+  "navigationScenarios": 17,
+  "runtimeSuites": [
+    {
+      "suite": "navigation",
+      "exitCode": 0,
+      "artifactSHA256": "df53234249c4377a09c9ef8a42c8f25f2c65cc54275f9467eeec0654dd2d3ca0",
+      "environment": "independent singleplayer",
+      "formalServerConnected": false
+    },
+    {
+      "suite": "v11-production",
+      "exitCode": 0,
+      "artifactSHA256": "df53234249c4377a09c9ef8a42c8f25f2c65cc54275f9467eeec0654dd2d3ca0",
+      "environment": "independent singleplayer",
+      "formalServerConnected": false
+    }
+  ],
+  "sourceHashes": [
+    {
+      "path": "client\\src\\main\\java\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\AnvilOpenRetry.java",
+      "sha256": "34388ad15af5751fb2202d31aa5ee990906922a2cfce6ba2f50ef01e30054798"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\AnvilSupply.java",
+      "sha256": "0d8f3f1726735861db8b69e523225b426b1cad356fb0ef0f5e41a78d83c22da7"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\AutoEquipmentClient.java",
+      "sha256": "d09c26ca81e2ee179c5203b63bb9e9b54a621f3c54a3b22d87a70c085cabbe43"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\FoodControl.java",
+      "sha256": "5b0eecc933e721cb8db22f7a7cd1e47e5afcd87af0a7bd0126321c58780a3bcf"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\PlayerNavigation.java",
+      "sha256": "d4dce1a6c29e065bf596b9b103f9bda768c99e9ad95f181cd3d92c49decb7b4b"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\Procurement.java",
+      "sha256": "9951ee3387c983f1883e0e638c4dd161a0608c3a7cbaecc3369b9fae123134de"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\ProcurementStorage.java",
+      "sha256": "b507a16ed5d29391682a277912f13d174cc6c2fdc9f33a863b01fdae49c4c1a6"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\ProductionBatches.java",
+      "sha256": "6e5a86e1fa9c9e07ae79fda933d141b26f093e6ea2d507ae8c7a728ad505d23b"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\RemoteInventory.java",
+      "sha256": "3c3a235f6fb9573f41dc3e6b0db8beda82a618fc692d3c29f9cb42abb279c47f"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\RemoteOffers.java",
+      "sha256": "f1c4889a142059f570f9061a05511f61279059b29603868b263b5e4142968373"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\Robot.java",
+      "sha256": "ca45a68679fb19f937eedf5f942dab2139bf380103453963a63bf6448f53efc9"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\RobotSettings.java",
+      "sha256": "25a3e3bb89eb2b7d025a13705954bfce12821e8d60f405e5bd46b81dc041afcd"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\ServuxObserver.java",
+      "sha256": "7600c11f3b8160b3b027b6ec06ddf8fc6e5a10f933d6f8c8334e6f9e13f7702b"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\ServuxSession.java",
+      "sha256": "7b7b47ec50685eabe049d807c75e60a9be86c7929b8274deb2ef8d9583eb0570"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\SourceFetch.java",
+      "sha256": "eef7a114918cda374bc0be84ec048db597d42e083df168d296082bc3304cfb7f"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\Stacks.java",
+      "sha256": "541ff066766cf1f85ea42b50ed3143392f1bab6c1c342c282e66c7a46bdffbec"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\Trading.java",
+      "sha256": "46c474ebc718dec0d82b17d9304c4a4324b965ec8335cb70ba86caad91a091fb"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\WorkConfig.java",
+      "sha256": "064ec683438e4e8ff60ffb08284860c89209b7c0f0c36bc0d7cb2299b9802cf3"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\bootstrap\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\control\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\interaction\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\logistics\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\mixin\\ExternalInventoryMixin.java",
+      "sha256": "168f47065577166d0abfc363c8ed55044e49843a3e821a9c5fc0d337319bd4a1"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\mixin\\FoodUseMixin.java",
+      "sha256": "a920f581f87cacd7713d9af26a24d720dcaabe7dc8bcc4970eb4528e7316b2ce"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\mixin\\MenuSyncMixin.java",
+      "sha256": "7560add0fcdc36744793664fbdaca95ec1e4d61f0d59d8b274f81d0130d72f67"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\mixin\\NavigationInputMixin.java",
+      "sha256": "36aa76e0082b7fafb73daa004c664f5d3ad9a4e585e41f39094ee79f9c0830f2"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\mixin\\ServuxHandshakeMixin.java",
+      "sha256": "52599e2fbd7a6bfa7edb7de7535ca08a003899b60581e5846f5d6f812b92d6f0"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\mixin\\SettingsTextScaleMixin.java",
+      "sha256": "faeb2bd38e3df6b15fee3c4a7c34cb3352712b1e05d98f15f1ffd10d28e5cf30"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\notification\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\persistence\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\servux\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\trading\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "client\\src\\main\\java\\io\\github\\autoequipmentmaking\\client\\world\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "client\\src\\main\\resources\\aem.mixins.json",
+      "sha256": "dcf4fccfd7015b5a9926d2203cc7fea0dc93626f3af3eb18431b01a3935705f5"
+    },
+    {
+      "path": "client\\src\\main\\resources\\fabric.mod.json",
+      "sha256": "552473fb94dcab69abb92ecbcc60a81268177c6f294583835772f74f3fc84a41"
+    },
+    {
+      "path": "client\\src\\main\\resources\\assets\\auto_equipment_making\\lang\\zh_cn.json",
+      "sha256": "4d95f247d738321f7f6435f098d796f5e3c08fa9d9fb8c17831cb5591da9000e"
+    },
+    {
+      "path": "engine\\src\\main\\java\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "engine\\src\\main\\java\\io\\github\\autoequipmentmaking\\engine\\inventory\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "engine\\src\\main\\java\\io\\github\\autoequipmentmaking\\engine\\model\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "engine\\src\\main\\java\\io\\github\\autoequipmentmaking\\engine\\planner\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "engine\\src\\main\\java\\io\\github\\autoequipmentmaking\\engine\\planner\\AnvilPlanner.java",
+      "sha256": "6ddfe6f580b1710f8b0e07a73501bd1c8d1d5080fc4b6656f28228bac17bcf04"
+    },
+    {
+      "path": "engine\\src\\main\\java\\io\\github\\autoequipmentmaking\\engine\\planner\\BatchPacking.java",
+      "sha256": "45d23054389632669de3d2caec017f56bba16dc46b60aaded1b018e99ff9ad10"
+    },
+    {
+      "path": "engine\\src\\main\\java\\io\\github\\autoequipmentmaking\\engine\\planner\\TradeCooldown.java",
+      "sha256": "caf79748a09547410a81c0ac0ca154a5cd0af7b03ad65903ecfea4dc77725d7c"
+    },
+    {
+      "path": "engine\\src\\main\\java\\io\\github\\autoequipmentmaking\\engine\\planner\\UpgradeBooks.java",
+      "sha256": "40acd7e3a7cc461a01b99052762213ec2700f9e7f49e5edf253a98d26451506a"
+    },
+    {
+      "path": "engine\\src\\main\\java\\io\\github\\autoequipmentmaking\\engine\\port\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "engine\\src\\main\\java\\io\\github\\autoequipmentmaking\\engine\\workflow\\.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "pclInstalled": true,
+  "pclEvidence": "docs/evidence/navigation-v1/pcl-update.json",
+  "formalServerTested": false
+}

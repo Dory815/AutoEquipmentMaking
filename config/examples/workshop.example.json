@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 2,
+  "configured": false,
+  "serverKey": null,
+  "dimension": "minecraft:overworld",
+  "platformBounds": null,
+  "workstations": {
+    "crafting": [],
+    "smithing": [],
+    "anvils": []
+  },
+  "packing": {
+    "placement": null,
+    "standPosition": null,
+    "outputContainer": null,
+    "mayBreakTaskBoxOnly": true
+  },
+  "inventory": {
+    "protectedSlots": [],
+    "minimumFreeSlots": 16,
+    "allowNestedShulkerExtraction": false,
+    "bookPolicy": "single_enchantment_target_level_except_soul_speed_and_swift_sneak_upgrades",
+    "allowPriorWorkPenalty": true
+  },
+  "servux": {
+    "expectedServerVersion": "0.11.2",
+    "allowMenuFallback": false,
+    "requestsPerSecond": 10,
+    "maxInFlight": 4,
+    "timeoutMs": 3000,
+    "readRetries": 2
+  },
+  "navigation": {
+    "allowBlockBreaking": false,
+    "allowBlockPlacement": false,
+    "allowElytraFlight": false,
+    "maxReplans": 3
+  },
+  "rules": {
+    "blockedShulkerOpeningConfirmedByUser": true,
+    "blockedShulkerRuleName": null,
+    "anvilModel": "vanilla_26_2",
+    "anvilModelVerified": false
+  },
+  "planner": {
+    "objective": "sum_spent_levels",
+    "requireExactOptimal": true,
+    "timeoutMs": 5000
+  },
+  "notifications": {
+    "chatEnabled": true,
+    "minIntervalSeconds": 60,
+    "notifyOnlyOnChange": true
+  },
+  "control": {
+    "autoResumeAfterDisconnect": false,
+    "pauseOnManualInput": true
+  },
+  "trading": {
+    "enabled": true,
+    "maxEmeraldsPerTrade": null,
+    "maxEmeraldsPerKit": null
+  },
+  "logistics": {
+    "enabled": false,
+    "warehouseCommand": null,
+    "workshopCommand": null,
+    "warehouseDimension": null,
+    "warehouseArrivalBounds": null,
+    "warehouseBounds": null,
+    "warehousePackingPoint": null,
+    "warehouseOutputContainer": null,
+    "teleportTimeoutSeconds": 30,
+    "arrivalStableTicks": 40
+  }
+}

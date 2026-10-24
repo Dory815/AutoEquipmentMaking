@@ -1,0 +1,189 @@
+[
+  {
+    "name": "flat-diagonal",
+    "result": "arrived",
+    "ticks": 52,
+    "sprintTicks": 50,
+    "travelled": 13.692232647067751,
+    "pausedTicks": 1,
+    "maxYawChange": 20.0,
+    "plans": 1,
+    "jumps": 0
+  },
+  {
+    "name": "toggle-sprint",
+    "result": "arrived",
+    "ticks": 51,
+    "sprintTicks": 50,
+    "travelled": 13.682719147921349,
+    "pausedTicks": 0,
+    "maxYawChange": 20.0,
+    "plans": 1,
+    "jumps": 0
+  },
+  {
+    "name": "occluded-chest",
+    "result": "arrived",
+    "ticks": 38,
+    "sprintTicks": 27,
+    "travelled": 7.401168301940825,
+    "pausedTicks": 10,
+    "maxYawChange": 0.0,
+    "plans": 1,
+    "jumps": 0
+  },
+  {
+    "name": "off-center-corridor",
+    "result": "arrived",
+    "ticks": 32,
+    "sprintTicks": 21,
+    "travelled": 5.4397259351675356,
+    "pausedTicks": 10,
+    "maxYawChange": 0.0,
+    "plans": 1,
+    "jumps": 0
+  },
+  {
+    "name": "one-block",
+    "result": "arrived",
+    "ticks": 35,
+    "sprintTicks": 33,
+    "travelled": 8.625140231355454,
+    "pausedTicks": 0,
+    "maxYawChange": 0.0074615478515625,
+    "plans": 1,
+    "jumps": 1
+  },
+  {
+    "name": "half-slab-step",
+    "result": "arrived",
+    "ticks": 29,
+    "sprintTicks": 28,
+    "travelled": 7.812590319849374,
+    "pausedTicks": 0,
+    "maxYawChange": 0.0,
+    "plans": 1,
+    "jumps": 0
+  },
+  {
+    "name": "half-slab-descent",
+    "result": "arrived",
+    "ticks": 42,
+    "sprintTicks": 28,
+    "travelled": 8.153179988299637,
+    "pausedTicks": 13,
+    "maxYawChange": 20.0,
+    "plans": 1,
+    "jumps": 0
+  },
+  {
+    "name": "diagonal-corner",
+    "result": "arrived",
+    "ticks": 35,
+    "sprintTicks": 23,
+    "travelled": 5.96363785226863,
+    "pausedTicks": 11,
+    "maxYawChange": 20.0,
+    "plans": 1,
+    "jumps": 0
+  },
+  {
+    "name": "two-block-no-boost",
+    "result": "rejected",
+    "ticks": 0,
+    "sprintTicks": 0,
+    "travelled": 0.0,
+    "pausedTicks": 0,
+    "maxYawChange": 0.0,
+    "plans": 0,
+    "jumps": 0
+  },
+  {
+    "name": "two-block-boost-I",
+    "result": "rejected",
+    "ticks": 0,
+    "sprintTicks": 0,
+    "travelled": 0.0,
+    "pausedTicks": 0,
+    "maxYawChange": 0.0,
+    "plans": 0,
+    "jumps": 0
+  },
+  {
+    "name": "two-block-real-beacon-II",
+    "result": "arrived",
+    "ticks": 37,
+    "sprintTicks": 32,
+    "travelled": 9.840687310420531,
+    "pausedTicks": 0,
+    "maxYawChange": 0.0,
+    "plans": 1,
+    "jumps": 1
+  },
+  {
+    "name": "two-block-low-ceiling",
+    "result": "rejected",
+    "ticks": 0,
+    "sprintTicks": 0,
+    "travelled": 0.0,
+    "pausedTicks": 0,
+    "maxYawChange": 0.0,
+    "plans": 0,
+    "jumps": 0
+  },
+  {
+    "name": "magma-detour",
+    "result": "arrived",
+    "ticks": 45,
+    "sprintTicks": 42,
+    "travelled": 11.346818150881235,
+    "pausedTicks": 2,
+    "maxYawChange": 20.0,
+    "plans": 1,
+    "jumps": 0
+  },
+  {
+    "name": "effect-removal",
+    "result": "safe-stop",
+    "ticks": 4,
+    "sprintTicks": 3,
+    "travelled": 0.5592996585093583,
+    "pausedTicks": 0,
+    "maxYawChange": 1.2937698364257812,
+    "plans": 1,
+    "jumps": 0
+  },
+  {
+    "name": "dynamic-obstacle",
+    "result": "arrived",
+    "ticks": 51,
+    "sprintTicks": 46,
+    "travelled": 12.444842799397295,
+    "pausedTicks": 4,
+    "maxYawChange": 20.0,
+    "plans": 2,
+    "jumps": 0
+  },
+  {
+    "name": "manual-pause-resume",
+    "result": "arrived",
+    "ticks": 37,
+    "sprintTicks": 35,
+    "travelled": 9.479239417253922,
+    "pausedTicks": 0,
+    "maxYawChange": 0.5454788208007812,
+    "plans": 1,
+    "jumps": 0
+  },
+  {
+    "name": "low-hunger-walk",
+    "result": "arrived",
+    "ticks": 46,
+    "sprintTicks": 0,
+    "travelled": 9.45405659810937,
+    "pausedTicks": 0,
+    "maxYawChange": 0.00522613525390625,
+    "plans": 1,
+    "jumps": 0
+  }
+]

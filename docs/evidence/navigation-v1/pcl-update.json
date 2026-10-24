@@ -1,0 +1,12 @@
+{
+  "versionName": "26.2-自动打装备",
+  "aem": "1.0.0",
+  "artifactSHA256": "df53234249c4377a09c9ef8a42c8f25f2c65cc54275f9467eeec0654dd2d3ca0",
+  "backup": "D:\\MC\\AutoEquipmentMaking\\runtime\\pcl-equipment-client\\backups\\rc6-before-v10-navigation-20261024",
+  "configurationFilesUnchanged": 3,
+  "protectedFilesUnchanged": 81,
+  "modCount": 5,
+  "clientLaunched": false,
+  "formalServerConnected": false,
+  "originalVersionsWritten": []
+}

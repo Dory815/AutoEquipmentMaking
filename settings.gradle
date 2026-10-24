@@ -1,0 +1,12 @@
+pluginManagement {
+    repositories {
+        maven { url = 'https://maven.fabricmc.net/' }
+        gradlePluginPortal()
+    }
+    plugins {
+        id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    }
+}
+
+rootProject.name = 'auto-equipment-making'
+include 'engine', 'client'

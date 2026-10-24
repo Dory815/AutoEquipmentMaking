@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "kitId": "newcomer-equipment-v1",
+  "assumptions": [
+    "Craft 11 new diamond items",
+    "Consume 11 existing upgrade templates; no template duplication",
+    "Use existing full-durability unenchanted elytra, bow and shield",
+    "Baseline: one target-level single-enchantment book per enchantment; Soul Speed and Swift Sneak may use the upgrade alternatives below",
+    "Reuse placed anvils, then consume stored full/chipped/damaged anvils as needed; wear is determined by the server",
+    "Use one already placed empty light blue shulker per kit; source materials only from undyed shulkers and normal chests"
+  ],
+  "materials": {
+    "minecraft:diamond": 40,
+    "minecraft:stick": 12,
+    "minecraft:netherite_ingot": 11,
+    "minecraft:netherite_upgrade_smithing_template": 11,
+    "minecraft:elytra": 1,
+    "minecraft:shield": 1,
+    "minecraft:bow": 1
+  },
+  "books": [
+    {
+      "enchantment": "minecraft:respiration",
+      "level": 3,
+      "count": 1
+    },
+    {
+      "enchantment": "minecraft:protection",
+      "level": 4,
+      "count": 4
+    },
+    {
+      "enchantment": "minecraft:aqua_affinity",
+      "level": 1,
+      "count": 1
+    },
+    {
+      "enchantment": "minecraft:unbreaking",
+      "level": 3,
+      "count": 14
+    },
+    {
+      "enchantment": "minecraft:mending",
+      "level": 1,
+      "count": 13
+    },
+    {
+      "enchantment": "minecraft:swift_sneak",
+      "level": 3,
+      "count": 1
+    },
+    {
+      "enchantment": "minecraft:depth_strider",
+      "level": 3,
+      "count": 1
+    },
+    {
+      "enchantment": "minecraft:soul_speed",
+      "level": 3,
+      "count": 1
+    },
+    {
+      "enchantment": "minecraft:feather_falling",
+      "level": 4,
+      "count": 1
+    },
+    {
+      "enchantment": "minecraft:sharpness",
+      "level": 5,
+      "count": 1
+    },
+    {
+      "enchantment": "minecraft:sweeping_edge",
+      "level": 3,
+      "count": 2
+    },
+    {
+      "enchantment": "minecraft:looting",
+      "level": 3,
+      "count": 2
+    },
+    {
+      "enchantment": "minecraft:smite",
+      "level": 5,
+      "count": 1
+    },
+    {
+      "enchantment": "minecraft:silk_touch",
+      "level": 1,
+      "count": 1
+    },
+    {
+      "enchantment": "minecraft:efficiency",
+      "level": 5,
+      "count": 5
+    },
+    {
+      "enchantment": "minecraft:fortune",
+      "level": 3,
+      "count": 2
+    },
+    {
+      "enchantment": "minecraft:power",
+      "level": 5,
+      "count": 1
+    },
+    {
+      "enchantment": "minecraft:punch",
+      "level": 2,
+      "count": 1
+    },
+    {
+      "enchantment": "minecraft:flame",
+      "level": 1,
+      "count": 1
+    },
+    {
+      "enchantment": "minecraft:infinity",
+      "level": 1,
+      "count": 1
+    }
+  ],
+  "bookUpgradeAlternatives": {
+    "minecraft:soul_speed": [[3], [2, 2], [2, 1, 1], [1, 1, 1, 1]],
+    "minecraft:swift_sneak": [[3], [2, 2], [2, 1, 1], [1, 1, 1, 1]]
+  },
+  "experienceBudget": "computed_from_plan",
+  "workstations": [
+    "minecraft:crafting_table",
+    "minecraft:smithing_table",
+    "#minecraft:anvil"
+  ],
+  "placedPackaging": {
+    "minecraft:light_blue_shulker_box": 1
+  }
+}

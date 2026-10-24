@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "id": "newcomer-equipment-v1",
+  "release": "1.0",
+  "boxItem": "minecraft:light_blue_shulker_box",
+  "boxColorPolicy": "light_blue",
+  "matching": "exact_enchantments",
+  "requireFullDurability": true,
+  "allowCurses": false,
+  "items": [
+    {
+      "key": "helmet",
+      "item": "minecraft:netherite_helmet",
+      "count": 1,
+      "slot": 0,
+      "enchantments": {
+        "minecraft:respiration": 3,
+        "minecraft:protection": 4,
+        "minecraft:aqua_affinity": 1,
+        "minecraft:unbreaking": 3,
+        "minecraft:mending": 1
+      }
+    },
+    {
+      "key": "chestplate",
+      "item": "minecraft:netherite_chestplate",
+      "count": 1,
+      "slot": 1,
+      "enchantments": {
+        "minecraft:protection": 4,
+        "minecraft:unbreaking": 3,
+        "minecraft:mending": 1
+      }
+    },
+    {
+      "key": "leggings",
+      "item": "minecraft:netherite_leggings",
+      "count": 1,
+      "slot": 2,
+      "enchantments": {
+        "minecraft:protection": 4,
+        "minecraft:swift_sneak": 3,
+        "minecraft:unbreaking": 3,
+        "minecraft:mending": 1
+      }
+    },
+    {
+      "key": "boots",
+      "item": "minecraft:netherite_boots",
+      "count": 1,
+      "slot": 3,
+      "enchantments": {
+        "minecraft:protection": 4,
+        "minecraft:depth_strider": 3,
+        "minecraft:soul_speed": 3,
+        "minecraft:feather_falling": 4,
+        "minecraft:unbreaking": 3,
+        "minecraft:mending": 1
+      }
+    },
+    {
+      "key": "sharpness_sword",
+      "item": "minecraft:netherite_sword",
+      "count": 1,
+      "slot": 4,
+      "enchantments": {
+        "minecraft:sharpness": 5,
+        "minecraft:sweeping_edge": 3,
+        "minecraft:looting": 3,
+        "minecraft:unbreaking": 3,
+        "minecraft:mending": 1
+      }
+    },
+    {
+      "key": "smite_sword",
+      "item": "minecraft:netherite_sword",
+      "count": 1,
+      "slot": 5,
+      "enchantments": {
+        "minecraft:smite": 5,
+        "minecraft:sweeping_edge": 3,
+        "minecraft:looting": 3,
+        "minecraft:unbreaking": 3,
+        "minecraft:mending": 1
+      }
+    },
+    {
+      "key": "silk_touch_pickaxe",
+      "item": "minecraft:netherite_pickaxe",
+      "count": 1,
+      "slot": 6,
+      "enchantments": {
+        "minecraft:silk_touch": 1,
+        "minecraft:efficiency": 5,
+        "minecraft:unbreaking": 3,
+        "minecraft:mending": 1
+      }
+    },
+    {
+      "key": "fortune_pickaxe",
+      "item": "minecraft:netherite_pickaxe",
+      "count": 1,
+      "slot": 7,
+      "enchantments": {
+        "minecraft:fortune": 3,
+        "minecraft:efficiency": 5,
+        "minecraft:unbreaking": 3,
+        "minecraft:mending": 1
+      }
+    },
+    {
+      "key": "shovel",
+      "item": "minecraft:netherite_shovel",
+      "count": 1,
+      "slot": 8,
+      "enchantments": {
+        "minecraft:efficiency": 5,
+        "minecraft:unbreaking": 3,
+        "minecraft:mending": 1
+      }
+    },
+    {
+      "key": "axe",
+      "item": "minecraft:netherite_axe",
+      "count": 1,
+      "slot": 9,
+      "enchantments": {
+        "minecraft:efficiency": 5,
+        "minecraft:unbreaking": 3,
+        "minecraft:mending": 1
+      }
+    },
+    {
+      "key": "hoe",
+      "item": "minecraft:netherite_hoe",
+      "count": 1,
+      "slot": 10,
+      "enchantments": {
+        "minecraft:efficiency": 5,
+        "minecraft:fortune": 3,
+        "minecraft:unbreaking": 3,
+        "minecraft:mending": 1
+      }
+    },
+    {
+      "key": "elytra",
+      "item": "minecraft:elytra",
+      "count": 1,
+      "slot": 11,
+      "enchantments": {
+        "minecraft:unbreaking": 3,
+        "minecraft:mending": 1
+      }
+    },
+    {
+      "key": "shield",
+      "item": "minecraft:shield",
+      "count": 1,
+      "slot": 12,
+      "enchantments": {
+        "minecraft:unbreaking": 3,
+        "minecraft:mending": 1
+      }
+    },
+    {
+      "key": "bow",
+      "item": "minecraft:bow",
+      "count": 1,
+      "slot": 13,
+      "enchantments": {
+        "minecraft:power": 5,
+        "minecraft:punch": 2,
+        "minecraft:flame": 1,
+        "minecraft:infinity": 1,
+        "minecraft:unbreaking": 3
+      }
+    }
+  ]
+}

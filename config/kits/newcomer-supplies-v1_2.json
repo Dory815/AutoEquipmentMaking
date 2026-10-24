@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "newcomer-full-v1_2",
+  "release": "1.2",
+  "extends": "newcomer-equipment-v1",
+  "items": [
+    {
+      "item": "minecraft:firework_rocket",
+      "count": 64,
+      "slot": 14,
+      "components": {
+        "minecraft:fireworks": {
+          "flight_duration": 1,
+          "explosions": []
+        }
+      }
+    },
+    {
+      "item": "minecraft:enchanted_golden_apple",
+      "count": 64,
+      "slot": 15
+    },
+    {
+      "item": "minecraft:golden_carrot",
+      "count": 64,
+      "slot": 16
+    },
+    {
+      "item": "minecraft:ender_pearl",
+      "count": 16,
+      "slot": 17
+    },
+    {
+      "item": "minecraft:totem_of_undying",
+      "count": 1,
+      "slot": 18
+    },
+    {
+      "item": "minecraft:arrow",
+      "count": 1,
+      "slot": 19
+    }
+  ]
+}

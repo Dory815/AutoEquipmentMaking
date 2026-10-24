@@ -1,0 +1,76 @@
+plugins {
+    id 'net.fabricmc.fabric-loom'
+}
+
+base {
+    archivesName = 'auto-equipment-making-client'
+}
+sourceSets.main.resources.srcDir rootProject.file('config')
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = 'auto_equipment_making_tests'
+        enableGameTests = false
+        enableClientGameTests = true
+        eula = true
+        clearRunDirectory = false
+    }
+}
+if (project.hasProperty('mcInstance')) {
+    dependencies {
+        gametestRuntimeOnly fileTree(dir: "${project.property('mcInstance')}/mods", includes: ['*minihud*.jar','malilib*.jar','servux-fabric-26.2-0.11.2.jar'])
+    }
+}
+
+def aemClientTest = providers.gradleProperty('aemClientTest').getOrElse('all')
+if (!(aemClientTest in ['all', 'navigation', 'formal-settings', 'remote-inventory', 'servux-protocol', 'v11-edges', 'source-relocation', 'book-upgrade', 'upgrade-shortage', 'anvil-supply', 'v11-production', 'v11-all-books', 'v11-trading', 'v11-food', 'complex'])) {
+    throw new GradleException('Unknown aemClientTest suite')
+}
+tasks.named('processGametestResources') {
+    inputs.property('aemClientTest', aemClientTest)
+    filesMatching('fabric.mod.json') {
+        filter { line ->
+            if (aemClientTest != 'all') {
+                def metadata = new groovy.json.JsonSlurper().parseText(line)
+                def suites = ['navigation':'NavigationGameTest', 'formal-settings':'FormalSettingsGameTest', 'remote-inventory':'RemoteInventoryGameTest', 'source-relocation':'SourceRelocationGameTest', 'book-upgrade':'BookUpgradeGameTest', 'upgrade-shortage':'UpgradeShortageGameTest', 'anvil-supply':'AnvilSupplyGameTest', 'v11-production':'V11ProductionGameTest', 'v11-all-books':'AllBooksProcurementGameTest', 'v11-trading':'TradingGameTest', 'v11-food':'FoodGameTest', 'complex':'ComplexTerrainGameTest']
+                suites.putAll(['v11-edges':'ProcurementEdgesGameTest', 'servux-protocol':'ServuxProtocolGameTest'])
+                metadata.entrypoints['fabric-client-gametest'] = ["io.github.autoequipmentmaking.client.${suites[aemClientTest]}"]
+                return groovy.json.JsonOutput.toJson(metadata)
+            }
+            return line
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${rootProject.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
+    implementation project(':engine')
+    include project(':engine')
+    if (project.hasProperty('mcInstance')) {
+        compileOnly fileTree(dir: "${project.property('mcInstance')}/mods", includes: ['malilib*.jar'])
+        if (project.hasProperty('previewRuntime')) {
+            runtimeOnly fileTree(dir: "${project.property('mcInstance')}/mods", includes: ['*minihud*.jar','malilib*.jar'])
+        }
+    } else {
+        compileOnly 'maven.modrinth:malilib:0.29.3'
+    }
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(rootProject.java_version as int)
+    withSourcesJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = rootProject.java_version as int
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand version: project.version
+    }
+}
