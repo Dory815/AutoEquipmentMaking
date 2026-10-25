@@ -1,4 +1,6 @@
-欢迎到qq群713134137交流！
+**本模组完全是vibe出来的，质量稀碎，目前只有26.2Fabric15.1的版本。如果需要其他版本的可以提issue，可以移植**
+
+**本模组借鉴了yiyihehe大佬的一部分代码，github仓库https://github.com/qk-yiyihehe/quickcraft/，欢迎到qq群713134137交流！**
 
 # 新人装备自动制作
 
