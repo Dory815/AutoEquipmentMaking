@@ -8,6 +8,14 @@ import net.minecraft.world.item.ItemStack;
 
 /** Source relocation is recoverable only before a take click has been sent. */
 final class SourceFetch implements Robot.Step {
+    /** Prefer unobstructed lids. A blocked lid remains a fallback for servers permitting it. */
+    static boolean openingClear(net.minecraft.world.level.Level level,BlockPos pos){
+        var state=level.getBlockState(pos);
+        if(!(state.getBlock() instanceof net.minecraft.world.level.block.ShulkerBoxBlock))return true;
+        var facing=state.getValue(net.minecraft.world.level.block.ShulkerBoxBlock.FACING);
+        var lid=net.minecraft.world.entity.monster.Shulker.getProgressDeltaAabb(1,facing,0,.5f,net.minecraft.world.phys.Vec3.atBottomCenterOf(pos)).deflate(1e-6);
+        return level.noCollision(lid);
+    }
     private static final Map<Robot,Set<BlockPos>> failedOpens=new WeakHashMap<>();
     final Robot r;final Predicate<ItemStack> predicate;final int amount,take;final Robot.Source source;final ItemStack expected;
     Robot.Open open;Robot.Move move;boolean finished;

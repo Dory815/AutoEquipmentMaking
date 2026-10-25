@@ -15,7 +15,7 @@ import net.minecraft.world.item.*;
 import net.minecraft.world.item.trading.*;
 
 /** Actual production using purchased equipment/book, block currency, protected currency and food. */
-public final class V11ProductionGameTest extends ProductionGameTest {
+public class V11ProductionGameTest extends ProductionGameTest {
     @Override protected void fixtures(ServerLevel level,ServerPlayer player){
         ItemStack power=null,unbreaking=null;int removed=0;for(var pos:bookBoxes()){var c=(Container)level.getBlockEntity(pos);for(int i=0;i<c.getContainerSize();i++)if(Stacks.ench(c.getItem(i),true).containsKey("minecraft:power")){power=c.getItem(i).copy();c.setItem(i,ItemStack.EMPTY);}else if(removed<3&&Stacks.ench(c.getItem(i),true).equals(Map.of("minecraft:unbreaking",3))){unbreaking=c.getItem(i).copy();c.setItem(i,ItemStack.EMPTY);removed++;}}
         if(power==null)throw new AssertionError("Power book fixture missing");

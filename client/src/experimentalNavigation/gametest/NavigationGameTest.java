@@ -6,10 +6,12 @@ import java.util.*;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.*;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.effect.*;
 import net.minecraft.world.inventory.*;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.entity.BeaconBlockEntity;
 import net.minecraft.world.phys.Vec3;
 
@@ -23,6 +25,50 @@ public final class NavigationGameTest implements FabricClientGameTest {
     private float yaw;
     @Override public void runTest(ClientGameTestContext context) {
         try(var world=context.worldBuilder().create()) {
+            reset(context,world);
+            world.getServer().runOnServer(server->{
+                server.overworld().setBlockAndUpdate(new BlockPos(0,65,0),Blocks.CARPET.white().defaultBlockState());
+                server.getPlayerList().getPlayers().getFirst().teleportTo(.5,65.0625,.5);
+            });
+            context.waitTicks(10);run(context,world,"carpet-start",new BlockPos(3,65,0),true,false);
+
+            reset(context,world);
+            world.getServer().runOnServer(server->{
+                server.overworld().setBlockAndUpdate(new BlockPos(0,65,0),Blocks.OAK_TRAPDOOR.defaultBlockState());
+                server.getPlayerList().getPlayers().getFirst().teleportTo(.5,65.1875,.5);
+            });
+            context.waitTicks(10);run(context,world,"bottom-trapdoor-start",new BlockPos(3,65,0),true,false);
+
+            reset(context,world);
+            world.getServer().runOnServer(server->{
+                server.overworld().setBlockAndUpdate(new BlockPos(2,64,0),Blocks.AIR.defaultBlockState());
+                server.getPlayerList().getPlayers().getFirst().teleportTo(2.15,65,.5);
+            });
+            context.waitTicks(10);run(context,world,"supported-edge-start",new BlockPos(-3,65,0),true,false);
+
+            for(Direction direction:List.of(Direction.NORTH,Direction.SOUTH,Direction.WEST,Direction.EAST)){
+                reset(context,world);
+                world.getServer().runOnServer(server->{
+                    var level=server.overworld();boolean alongX=direction.getAxis()==Direction.Axis.Z;
+                    var panel=Blocks.OAK_TRAPDOOR.defaultBlockState().setValue(TrapDoorBlock.OPEN,true).setValue(TrapDoorBlock.FACING,direction);
+                    for(int i=5;i<=10;i++)for(int y=65;y<=66;y++)level.setBlockAndUpdate(alongX?new BlockPos(i,y,1):new BlockPos(1,y,i),panel);
+                    double side=direction==Direction.NORTH||direction==Direction.WEST?1.699999988079:1.300000011921;
+                    // Same relative position as the real blocked corner, after sprint drift.
+                    server.getPlayerList().getPlayers().getFirst().teleportTo(alongX?4.699999988079:side,65,alongX?side:4.699999988079);
+                });
+                context.waitTicks(10);
+                run(context,world,"open-trapdoor-offset-"+direction.getName(),direction.getAxis()==Direction.Axis.Z?new BlockPos(8,65,1):new BlockPos(1,65,8),true,false);
+                check(active.plans==1&&active.centeringTicks>0,"Trapdoor turn must recover without repeating the same plan");
+            }
+
+            reset(context,world);
+            world.getServer().runOnServer(server->{
+                var level=server.overworld();
+                for(int x=-10;x<=16;x++)for(int y=65;y<=69;y++)for(int z:List.of(-1,1))level.setBlockAndUpdate(new BlockPos(x,y,z),Blocks.STONE.defaultBlockState());
+                for(int y=65;y<=69;y++)level.setBlockAndUpdate(new BlockPos(4,y,0),Blocks.OAK_TRAPDOOR.defaultBlockState().setValue(TrapDoorBlock.OPEN,true).setValue(TrapDoorBlock.FACING,Direction.EAST));
+            });
+            context.waitTicks(10);reject(context,"open-trapdoor-blocking-corridor",new BlockPos(8,65,0));
+
             reset(context,world);
             run(context,world,"flat-diagonal",new BlockPos(10,65,10),true,false);
             check(active.jumps==0&&ticks<60&&sprintTicks>35,"Flat movement not continuous/diagonal");
@@ -158,6 +204,6 @@ public final class NavigationGameTest implements FabricClientGameTest {
         context.runOnClient(mc->{active=AutoEquipmentClient.robot.new Navigator(target,true);boolean rejected=false;try{active.tick();}catch(IllegalStateException expected){rejected=expected.getMessage().startsWith("没有安全路线");}check(rejected,name+" accepted impossible route");check(!mc.options.keyUp.isDown()&&!mc.options.keyJump.isDown(),"Rejected route moved player");});
         ticks=0;travelled=0;pauses=0;sprintTicks=0;maxTurn=0;save(name,"rejected");
     }
-    private void save(String name,String result){var row=new JsonObject();row.addProperty("name",name);row.addProperty("result",result);row.addProperty("ticks",ticks);row.addProperty("sprintTicks",sprintTicks);row.addProperty("travelled",travelled);row.addProperty("pausedTicks",pauses);row.addProperty("maxYawChange",maxTurn);row.addProperty("plans",active.plans);row.addProperty("jumps",active.jumps);results.add(row);}
+    private void save(String name,String result){var row=new JsonObject();row.addProperty("name",name);row.addProperty("result",result);row.addProperty("ticks",ticks);row.addProperty("sprintTicks",sprintTicks);row.addProperty("travelled",travelled);row.addProperty("pausedTicks",pauses);row.addProperty("maxYawChange",maxTurn);row.addProperty("plans",active.plans);row.addProperty("jumps",active.jumps);row.addProperty("centeringTicks",active.centeringTicks);results.add(row);}
     private static void check(boolean condition,String message){if(!condition)throw new AssertionError(message);}
 }

@@ -7,7 +7,7 @@
   "environment": "client",
   "entrypoints": {"client":["io.github.autoequipmentmaking.client.AutoEquipmentClient"]},
   "mixins": ["aem.mixins.json"],
-  "custom": {"aem:revision":"release-1.0"},
+  "custom": {"aem:revision":"merchant-target-fix-20261025"},
   "depends": {
     "fabricloader": ">=0.19.5",
     "minecraft": "26.2",

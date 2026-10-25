@@ -1,10 +1,11 @@
 param(
-    [ValidateSet('navigation','v11-production','complex')][string]$Suite='navigation',
+    [ValidateSet('navigation','task-restart','v11-production','complex')][string]$Suite='navigation',
     [Parameter(Mandatory=$true)][string]$EvidenceName,
     [string]$TestInstance=(Join-Path $PSScriptRoot "../.test-instance"),
     [switch]$Offline
 )
 $ErrorActionPreference='Stop'
+if($Suite -eq 'navigation'){throw 'New navigation is shelved after the Alpha rollback. See docs/V1_ALPHA_NAVIGATION_ROLLBACK.md; do not run the old navigation suite against the rollback.'}
 Set-Location -LiteralPath (Split-Path -Parent $PSScriptRoot)
 if(-not $env:JAVA_HOME){throw 'Set JAVA_HOME to a JDK 25 installation'}
 if(-not(Test-Path -LiteralPath (Join-Path $TestInstance 'mods'))){throw 'Supply an independent test instance with MaLiLib 0.29.3 and MiniHUD 0.40.4 in mods'}
@@ -13,6 +14,9 @@ $navRoot=Join-Path (Get-Location) "docs/evidence/navigation-v1/$EvidenceName"
 if(Test-Path -LiteralPath $navRoot){throw 'Refusing to overwrite evidence'}
 New-Item -ItemType Directory -Path $navRoot | Out-Null
 $env:GRADLE_USER_HOME=Join-Path (Get-Location) '.gradle-user-home'
+$navVersionLine=Get-Content -LiteralPath 'gradle.properties' | Where-Object {$_ -match '^mod_version='}
+if(@($navVersionLine).Count -ne 1 -or $navVersionLine -notmatch '^mod_version=([0-9A-Za-z.+-]+)$'){throw 'Invalid project mod version'}
+$navArtifactVersion=$Matches[1]
 $navRun=Join-Path (Get-Location) 'client/build/run/clientGameTest'
 $navStart=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 $navExit=1
@@ -32,7 +36,7 @@ try {
     if(Test-Path -LiteralPath $navJournal) {
         Get-Content -LiteralPath $navJournal | Where-Object {($_ | ConvertFrom-Json).time -ge $navStart} | Set-Content -LiteralPath (Join-Path $navRoot 'task.jsonl') -Encoding utf8
     }
-    $navJar=Join-Path (Get-Location) 'client/build/libs/auto-equipment-making-client-1.0.0.jar'
+    $navJar=Join-Path (Get-Location) "client/build/libs/auto-equipment-making-client-$navArtifactVersion.jar"
     $navHash=if(Test-Path -LiteralPath $navJar){(Get-FileHash -LiteralPath $navJar).Hash.ToLowerInvariant()}else{$null}
     [ordered]@{suite=$Suite;exitCode=$navExit;artifactSHA256=$navHash;environment='independent singleplayer';formalServerConnected=$false} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $navRoot 'run.json') -Encoding utf8
     if(Test-Path -LiteralPath (Join-Path $navRun 'screenshots')) {

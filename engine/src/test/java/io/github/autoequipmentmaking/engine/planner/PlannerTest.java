@@ -3,6 +3,13 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 class PlannerTest {
+    @Test void finalRenameCountsOnceAndRespectsTooExpensive(){
+        var books=List.of(new AnvilPlanner.Book("x",1,1,38));
+        assertEquals(39,new AnvilPlanner(books,Long.MAX_VALUE).solve(0).total());
+        assertThrows(IllegalStateException.class,()->new AnvilPlanner(books,Long.MAX_VALUE).solve(0,1));
+        var normal=List.of(new AnvilPlanner.Book("x",1,1,0),new AnvilPlanner.Book("y",1,2,0));
+        assertEquals(new AnvilPlanner(normal,Long.MAX_VALUE).solve(0).total()+1,new AnvilPlanner(normal,Long.MAX_VALUE).solve(0,1).total());
+    }
     @Test void chestplate() {
         var p=new AnvilPlanner(List.of(new AnvilPlanner.Book("protection",4,1,0),new AnvilPlanner.Book("unbreaking",3,1,0),new AnvilPlanner.Book("mending",1,2,0)),Long.MAX_VALUE).solve(0);
         assertEquals(13,p.total()); assertEquals(5,p.peak()); assertEquals(7,p.penalty());

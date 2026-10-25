@@ -1,0 +1,31 @@
+{
+  "version": "1.3.1",
+  "sha256": "c392e94ab5ce998ab4f9026a10d9ca4825f101e62fe39c2f14874ad35e1a49d0",
+  "artifactUnchanged": true,
+  "clientClasses": 78,
+  "embeddedEngineClasses": 7,
+  "engineTests": 10,
+  "singleplayerBulk": {
+    "boxes": 5,
+    "items": 122,
+    "pickaxeRenames": 54
+  },
+  "formal": {
+    "mode": "newcomer",
+    "boxes": 2,
+    "items": 28,
+    "purchases": 40,
+    "emeralds": 228,
+    "levelsSpent": 570,
+    "sameTaskContinued": true,
+    "queueEmpty": true,
+    "naturalRestockRecoveries": 2
+  },
+  "limitations": [
+    "No formal bulk mode",
+    "No formal multiple Unbreaking III vendor rotation",
+    "No maximum 10-box run",
+    "No server MSPT/TPS"
+  ],
+  "userConfirmed": true
+}

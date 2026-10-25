@@ -17,6 +17,7 @@ public final class AnvilPlanner {
     private final int[] maxima,weights;
     private final long target;
     private final Map<Integer,List<State>> cache = new HashMap<>();
+    private int finalExtra;
     public AnvilPlanner(List<Book> books,long deadline) {this(books,defaultTargets(books),deadline);}
     private static Map<String,Integer> defaultTargets(List<Book> books){
         var targets=new TreeMap<String,Integer>();books.forEach(b->targets.merge(b.enchantment(),b.level(),Math::max));return targets;
@@ -35,7 +36,12 @@ public final class AnvilPlanner {
         target=encoded;
     }
     public Node solve(int equipmentPenalty) {
+        return solve(equipmentPenalty,0);
+    }
+    /** Include a rename in the final equipment merge, including the level-40 limit. */
+    public Node solve(int equipmentPenalty,int finalExtra) {
         if(equipmentPenalty<0)throw new IllegalArgumentException("Negative equipment penalty");
+        if(finalExtra<0)throw new IllegalArgumentException("Negative final surcharge");this.finalExtra=finalExtra;
         cache.clear();cache.put(1,List.of(new State(new Node(0,null,null,0,equipmentPenalty,0,0),0)));
         for(int i=0;i<books.size();i++){Book b=books.get(i);cache.put(1<<(i+1),List.of(new State(new Node(i+1,null,null,0,b.penalty(),0,0),(long)b.level()<<(ids.indexOf(b.enchantment())*4))));}
         return states((1<<(books.size()+1))-1).stream().filter(s->s.levels==target).map(State::node)
@@ -55,7 +61,7 @@ public final class AnvilPlanner {
                     int l=(int)((a.levels>>>(4*i))&15),out=Math.min(maxima[i],l==r?r+1:Math.max(l,r));
                     levels=(levels&~(15L<<(4*i)))|((long)out<<(4*i));transfer+=out*weights[i];
                 }
-                Node an=a.node,bn=b.node;long price=(long)an.penalty()+bn.penalty()+transfer;if(price>=40)continue;
+                Node an=a.node,bn=b.node;long price=(long)an.penalty()+bn.penalty()+transfer+(mask==((1<<(books.size()+1))-1)?finalExtra:0);if(price>=40)continue;
                 int penalty=(int)Math.min(Integer.MAX_VALUE,2L*Math.max(an.penalty(),bn.penalty())+1);
                 Node n=new Node(-1,an,bn,(int)price,penalty,an.total()+bn.total()+(int)price,Math.max((int)price,Math.max(an.peak(),bn.peak())));
                 // Different levels cannot dominate each other: their future upgrade costs differ.

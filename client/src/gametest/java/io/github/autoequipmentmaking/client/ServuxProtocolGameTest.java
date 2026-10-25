@@ -30,6 +30,11 @@ public final class ServuxProtocolGameTest implements FabricClientGameTest {
                 check(ServuxSession.accept(b,handshake(1,"servux-0.11.2")),"Compatible fresh handshake rejected");ServuxSession.requireReady(b);
                 var type=Class.forName("fi.dy.masa.minihud.data.EntityDataManager");var manager=type.getMethod("getInstance").invoke(null);var tracker=type.getMethod("getRequestTracker").invoke(manager);
                 var v=(Villager)mc.level.getEntity(villager);check(v!=null,"Villager not loaded");int id=v.getId();
+                var cache=type.getMethod("getCache").invoke(manager);
+                // MaLiLib returns an empty compound on a cache miss, not null.
+                cache.getClass().getMethod("removeFromCache",int.class).invoke(cache,id);
+                tracker.getClass().getMethod("setPendingLocalEntityRequest",int.class,boolean.class).invoke(tracker,id,false);
+                check(RemoteOffers.read(manager,id,villager)==null,"Missing entity cache entry must wait, not fail UUID validation");
                 tracker.getClass().getMethod("setPendingLocalEntityRequest",int.class,boolean.class).invoke(tracker,id,true);
                 check(RemoteOffers.read(manager,id,villager)==null,"Pending entity accepted");
                 var tag=new CompoundTag();tag.put("UUID",UUIDUtil.CODEC.encodeStart(NbtOps.INSTANCE,villager).getOrThrow());tag.putString("id","minecraft:villager");
@@ -37,14 +42,21 @@ public final class ServuxProtocolGameTest implements FabricClientGameTest {
                 tag.put("Offers",MerchantOffers.CODEC.encodeStart(mc.level.registryAccess().createSerializationContext(NbtOps.INSTANCE),offers).getOrThrow());
                 var receiver=type.getMethod("handleEntityData",int.class,CompoundTag.class);receiver.invoke(manager,id,tag);
                 var read=RemoteOffers.read(manager,id,villager);check(read!=null&&read.size()==1&&read.getFirst().getCostA().getCount()==10,"Real receiver lost offer or cost");
+                long expiry=(long)cache.getClass().getMethod("getTimeout").invoke(cache);
+                cache.getClass().getMethod("tickCache",long.class).invoke(cache,System.currentTimeMillis()+expiry+1);
+                check(RemoteOffers.read(manager,id,villager)==null,"Expired entity response must wait, not fail UUID validation");
+                receiver.invoke(manager,id,tag);
                 var wrong=tag.copy();wrong.put("UUID",UUIDUtil.CODEC.encodeStart(NbtOps.INSTANCE,UUID.randomUUID()).getOrThrow());receiver.invoke(manager,id,wrong);
                 boolean rejected=false;try{RemoteOffers.read(manager,id,villager);}catch(IllegalStateException expected){rejected=true;}check(rejected,"Mismatched cached UUID accepted");
                 var empty=tag.copy();empty.remove("Offers");receiver.invoke(manager,id,empty);check(RemoteOffers.read(manager,id,villager).isEmpty(),"Uninitialized offers did not allow menu fallback");
                 var malformed=tag.copy();malformed.putString("Offers","invalid");receiver.invoke(manager,id,malformed);rejected=false;try{RemoteOffers.read(manager,id,villager);}catch(IllegalStateException expected){rejected=true;}check(rejected,"Malformed offers accepted");
+                var missingUuid=tag.copy();missingUuid.remove("UUID");receiver.invoke(manager,id,missingUuid);rejected=false;try{RemoteOffers.read(manager,id,villager);}catch(IllegalStateException expected){rejected=true;}check(rejected,"Present response with missing UUID accepted");
                 var box=new CompoundTag();box.putString("id","minecraft:shulker_box");box.putInt("x",pos.getX());box.putInt("y",pos.getY());box.putInt("z",pos.getZ());
                 tracker.getClass().getMethod("setPendingLocalBlockEntityRequest",BlockPos.class,boolean.class).invoke(tracker,pos,true);
                 check(RemoteInventory.read(manager,pos)==null,"Pending block accepted");type.getMethod("handleBlockEntityData",BlockPos.class,CompoundTag.class).invoke(manager,pos,box);
                 check(RemoteInventory.read(manager,pos).isEmpty(),"Empty receiver response not recognized");
+                cache.getClass().getMethod("tickCache",long.class).invoke(cache,System.currentTimeMillis()+expiry+1);
+                check(RemoteInventory.read(manager,pos)==null,"Expired block response must not become an empty container");
                 box.putInt("x",99);rejects(()->RemoteInventory.validateIdentity(box,pos),"Wrong block coordinates accepted");box.putInt("x",0);box.putString("id","minecraft:chest");rejects(()->RemoteInventory.validateIdentity(box,pos),"Wrong block type accepted");
                 var invalid=new CompoundTag();invalid.putString("Items","invalid");rejects(()->RemoteInventory.decode(invalid),"Malformed Items accepted as empty");
                 var observer=new ServuxObserver();observer.connect();var field=ServuxObserver.class.getDeclaredField("world");field.setAccessible(true);field.set(observer,null);rejects(observer::requireWorld,"Old world observer accepted");

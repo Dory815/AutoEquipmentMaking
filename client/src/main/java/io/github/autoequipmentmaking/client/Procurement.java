@@ -38,7 +38,7 @@ final class Procurement implements Robot.Step {
         var books=new LinkedHashMap<io.github.autoequipmentmaking.engine.planner.AnvilPlanner.Book,Integer>();
         for(var plan:r.plans)for(var book:plan.books())books.merge(book,1,Integer::sum);
         books.forEach((b,n)->needs.add(new Need(s->Stacks.book(s,b.enchantment(),b.level(),b.penalty()),n,Robot.label(b.enchantment())+b.level()+"级附魔书")));
-        needs.add(new Need(r.base("minecraft:bow"),1,Robot.label("minecraft:bow")));
+        if(r.kit.stream().anyMatch(t->t.item().equals("minecraft:bow")))needs.add(new Need(r.base("minecraft:bow"),1,Robot.label("minecraft:bow")));
         if(r.kit.stream().anyMatch(t->t.key().equals("shield")))needs.add(new Need(r.base("minecraft:shield"),1,Robot.label("minecraft:shield")));
     }
     int free(){int n=0;for(int i=0;i<36;i++)if(!r.protectedSlots.contains(i)&&r.mc.player.getInventory().getItem(i).isEmpty())n++;return n;}

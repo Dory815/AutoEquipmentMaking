@@ -33,12 +33,21 @@ final class RemoteInventory {
         var mc=Minecraft.getInstance();Object cache=manager.getClass().getMethod("getCache").invoke(manager),tracker=manager.getClass().getMethod("getRequestTracker").invoke(manager);
         Method pending=tracker.getClass().getMethod("hasPendingLocalBlockEntity",BlockPos.class);BlockPos other=partner(p);
         if((boolean)pending.invoke(tracker,p)||(other!=null&&(boolean)pending.invoke(tracker,other)))return null;
+        Method entry=cache.getClass().getMethod("getBlockEntityDataEntryFromCache",BlockPos.class);
+        if(entry.invoke(cache,p)==null||(other!=null&&entry.invoke(cache,other)==null))return null;
         Method nbt=cache.getClass().getMethod("getBlockEntityNbtFromCache",BlockPos.class);
         CompoundTag own=(CompoundTag)nbt.invoke(cache,p);if(own==null)return null;
         validateIdentity(own,p);Container first=decode(own);if(other==null)return first;
         CompoundTag paired=(CompoundTag)nbt.invoke(cache,other);if(paired==null)return null;
         validateIdentity(paired,other);Container second=decode(paired);
         return mc.level.getBlockState(p).getValue(ChestBlock.TYPE)==ChestType.RIGHT?new CompoundContainer(first,second):new CompoundContainer(second,first);
+    }
+    static void refreshMissing(Object manager,BlockPos p)throws ReflectiveOperationException{
+        Object cache=manager.getClass().getMethod("getCache").invoke(manager),tracker=manager.getClass().getMethod("getRequestTracker").invoke(manager);
+        Method pending=tracker.getClass().getMethod("hasPendingLocalBlockEntity",BlockPos.class),entry=cache.getClass().getMethod("getBlockEntityDataEntryFromCache",BlockPos.class);
+        BlockPos other=partner(p);
+        if(!(boolean)pending.invoke(tracker,p)&&(other==null||!(boolean)pending.invoke(tracker,other))
+            &&(entry.invoke(cache,p)==null||(other!=null&&entry.invoke(cache,other)==null)))refresh(manager,p);
     }
     static void validateIdentity(CompoundTag nbt,BlockPos p){
         for(var entry:Map.of("x",p.getX(),"y",p.getY(),"z",p.getZ()).entrySet())if(nbt.contains(entry.getKey())&&nbt.getIntOr(entry.getKey(),Integer.MIN_VALUE)!=entry.getValue())throw new IllegalStateException("Servux 容器坐标与请求不一致: "+p);

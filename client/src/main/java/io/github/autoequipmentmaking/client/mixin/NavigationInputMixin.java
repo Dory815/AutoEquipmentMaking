@@ -1,20 +1,18 @@
 package io.github.autoequipmentmaking.client.mixin;
 
 import io.github.autoequipmentmaking.client.AutoEquipmentClient;
-import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.player.ClientInput;
+import net.minecraft.world.phys.Vec2;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.*;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/** Navigation owns jump decisions; preserve the user's auto-jump setting outside navigation. */
-@Mixin(LocalPlayer.class)
+/** Analog forward input for braking at narrow anchors, without changing player velocity. */
+@Mixin(ClientInput.class)
 public class NavigationInputMixin {
-    @Shadow private int autoJumpTime;
-    private boolean aemNavigating(){return AutoEquipmentClient.robot!=null&&AutoEquipmentClient.robot.ownsNavigation();}
-    @Inject(method="canAutoJump",at=@At("HEAD"),cancellable=true)
-    private void plannedJumpOnly(CallbackInfoReturnable<Boolean> ci){if(aemNavigating())ci.setReturnValue(false);}
-    @Inject(method="aiStep",at=@At("HEAD"))
-    private void clearQueuedAutoJump(CallbackInfo ci){if(aemNavigating())autoJumpTime=0;}
+    @Inject(method="getMoveVector",at=@At("RETURN"),cancellable=true)
+    private void navigationScale(CallbackInfoReturnable<Vec2> ci){
+        var r=AutoEquipmentClient.robot;
+        if(r!=null&&r.ownsNavigation())ci.setReturnValue(new Vec2(0,r.navigationInput()));
+    }
 }

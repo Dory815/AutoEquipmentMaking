@@ -13,8 +13,12 @@ final class ServuxObserver {
     private Object manager;
     private net.minecraft.client.multiplayer.ClientLevel world;
     private Object connection;
+    void reset() {
+        local.values().forEach(f->f.cancel(false));localOffers.values().forEach(f->f.cancel(false));
+        local.clear();localOffers.clear();manager=null;world=null;connection=null;
+    }
     void connect() {
-        var mc=Minecraft.getInstance();local.clear();localOffers.clear();manager=null;world=mc.level;connection=mc.getConnection();
+        var mc=Minecraft.getInstance();reset();world=mc.level;connection=mc.getConnection();
         if(mc.hasSingleplayerServer())return;
         try {
             Class<?> type=Class.forName("fi.dy.masa.minihud.data.EntityDataManager");
@@ -30,6 +34,7 @@ final class ServuxObserver {
                 cache.getMethod("removeFromCache",key);
                 String kind=key==int.class?"Entity":"BlockEntity";
                 cache.getMethod("get"+kind+"NbtFromCache",key);
+                cache.getMethod("get"+kind+"DataEntryFromCache",key);
                 tracker.getMethod("setPendingLocal"+kind+"Request",key,boolean.class);
                 tracker.getMethod("hasPendingLocal"+kind,key);
                 type.getDeclaredMethod("requestServux"+kind+"Data",key).setAccessible(true);
@@ -61,7 +66,9 @@ final class ServuxObserver {
         }
         try {
             requireRemote();
-            return RemoteInventory.read(manager,p);
+            Container snapshot=RemoteInventory.read(manager,p);
+            if(snapshot==null)RemoteInventory.refreshMissing(manager,p);
+            return snapshot;
         }catch(ReflectiveOperationException e){throw new IllegalStateException("Servux 库存读取失败",e);}
     }
     void refreshOffers(net.minecraft.world.entity.npc.villager.Villager villager){
@@ -81,6 +88,6 @@ final class ServuxObserver {
         if(Minecraft.getInstance().hasSingleplayerServer()){
             var pending=localOffers.get(villager.getUUID());return pending==null||!pending.isDone()?null:pending.join();
         }
-        try{requireRemote();return RemoteOffers.read(manager,villager.getId(),villager.getUUID());}catch(ReflectiveOperationException e){throw new IllegalStateException("Servux 村民报价读取失败",e);}
+        try{requireRemote();var offers=RemoteOffers.read(manager,villager.getId(),villager.getUUID());if(offers==null)RemoteOffers.refreshMissing(manager,villager.getId());return offers;}catch(ReflectiveOperationException e){throw new IllegalStateException("Servux 村民报价读取失败",e);}
     }
 }

@@ -72,8 +72,8 @@ final class Trading {
             var entity=r.mc.level.getEntity(id);
             if(!(entity instanceof Villager v)||!v.isAlive()){failed=true;return true;}
             if(!sent){r.close();if(!r.inside(v.blockPosition())){failed=true;return true;}
-                if(!v.blockPosition().equals(target)){target=v.blockPosition().immutable();nav=r.new Navigator(target);}
-                if(!nav.tick())return false;r.food.due=false;r.look(v.getEyePosition());r.mc.gameMode.interact(r.mc.player,v,new EntityHitResult(v,v.getEyePosition()),InteractionHand.MAIN_HAND);sent=true;start=r.ticks;return false;
+                if(!v.blockPosition().equals(target)){target=v.blockPosition().immutable();nav=r.new Navigator(v);}
+                if(!nav.tick())return false;var aim=PlayerNavigation.merchantAim(r,v,r.mc.player.position(),3.2);if(aim==null){target=null;nav=null;return false;}r.food.due=false;r.look(aim);r.mc.gameMode.interact(r.mc.player,v,new EntityHitResult(v,aim),InteractionHand.MAIN_HAND);sent=true;start=r.ticks;return false;
             }
             if(r.mc.player.containerMenu instanceof MerchantMenu menu&&!menu.getOffers().isEmpty()&&r.ticks-start>=5)return true;
             r.require(r.mc.player.containerMenu==r.mc.player.inventoryMenu||r.mc.player.containerMenu instanceof MerchantMenu,"村民交互打开了错误菜单");
@@ -82,7 +82,7 @@ final class Trading {
     }
     final class Acquire implements Robot.Step {
         final Predicate<ItemStack> predicate;final int amount;final boolean purchaseOnly;final Procurement.Payments batchPayments;final TradeCooldown cooldown=new TradeCooldown();
-        List<UUID> round;int index;OpenMerchant open;Quote chosen;boolean sawExhausted;
+        List<UUID> round;int index,exhaustedVendors;OpenMerchant open;Quote chosen;
         Acquire(Predicate<ItemStack> p,int n){predicate=p;amount=n;purchaseOnly=false;batchPayments=null;}
         Acquire(Predicate<ItemStack> p,int n,Procurement.Payments payments){predicate=p;amount=n;purchaseOnly=true;batchPayments=payments;}
         public boolean tick(){
@@ -91,21 +91,23 @@ final class Trading {
             if(!purchaseOnly&&r.available(predicate)>=amount){r.close();r.prepend(List.of(r.new Fetch(predicate,amount)));return true;}
             r.state="TRADING";r.stepStart=r.ticks; // Restock polling is intentionally unbounded, without replaying purchases.
             if(round==null){if(!cooldown.due(System.nanoTime()/1_000_000L))return false;
-                round=quotes.stream().filter(q->supported(q.offer)&&predicate.test(q.offer.getResult())).sorted(Comparator.comparing((Quote q)->q.offer.isOutOfStock()).thenComparingInt(q->emeralds(q.offer))).map(Quote::villager).distinct().toList();index=0;sawExhausted=false;
+                round=quotes.stream().filter(q->supported(q.offer)&&predicate.test(q.offer.getResult())).sorted(Comparator.comparing((Quote q)->q.offer.isOutOfStock()).thenComparingInt(q->emeralds(q.offer))).map(Quote::villager).distinct().toList();index=0;exhaustedVendors=0;
                 if(round.isEmpty()){round=null;open=null;r.queue.addFirst(new Discover());r.queue.addFirst(r.new Scan());throw new Robot.Waiting("没有匹配的村民报价或原料："+description());}
             }
             if(index>=round.size()){
                 r.close();
-                if(!sawExhausted){round=null;open=null;r.queue.addFirst(new Discover());r.queue.addFirst(r.new Scan());throw new Robot.Waiting("村民暂时不可交易或报价改变："+description());}
+                if(exhaustedVendors!=round.size()){round=null;open=null;r.queue.addFirst(new Discover());r.queue.addFirst(r.new Scan());throw new Robot.Waiting("村民暂时不可交易或报价改变："+description());}
                 if(cooldown.exhausted(System.nanoTime()/1_000_000L))r.announce("村民进入补货冷却："+description()+"；每20秒复查一次");
                 r.record("TRADE COOLDOWN CHECK "+cooldown.checks()+" "+description());round=null;open=null;return false;
             }
             if(open==null)open=new OpenMerchant(round.get(index));if(!open.tick())return false;
             if(open.failed){open=null;index++;return false;}
             var menu=(MerchantMenu)r.mc.player.containerMenu;remember(round.get(index),menu);
-            sawExhausted|=quotes.stream().anyMatch(q->q.villager.equals(round.get(index))&&supported(q.offer)&&predicate.test(q.offer.getResult())&&q.offer.isOutOfStock());
             chosen=quotes.stream().filter(q->q.villager.equals(round.get(index))&&supported(q.offer)&&predicate.test(q.offer.getResult())&&!q.offer.isOutOfStock()).min(Comparator.comparingInt(q->emeralds(q.offer))).orElse(null);
-            if(chosen==null){r.close();open=null;index++;return false;}
+            if(chosen==null){
+                if(quotes.stream().anyMatch(q->q.villager.equals(round.get(index))&&supported(q.offer)&&predicate.test(q.offer.getResult())&&q.offer.isOutOfStock())){exhaustedVendors++;r.record("TRADE VENDOR EXHAUSTED switch candidate="+index+" of="+round.size());}
+                r.close();open=null;index++;return false;
+            }
             if(cooldown.recovered())r.announce("村民补货完成，可以继续交易："+description());
             var o=chosen.offer;int cost=emeralds(o);if(cost>limit("maxEmeraldsPerTrade")||spent+cost>limit("maxEmeraldsPerKit")){r.close();round=null;open=null;throw new Robot.Waiting("村民交易超过配置的绿宝石预算："+description());}
             var payments=new LinkedHashMap<String,Integer>();for(var s:List.of(o.getCostA(),o.getCostB()))if(!s.isEmpty())payments.merge(Stacks.id(s),s.getCount(),Integer::sum);

@@ -4,259 +4,256 @@ import java.util.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.level.PathNavigationRegion;
-import net.minecraft.world.level.pathfinder.*;
+import net.minecraft.world.level.pathfinder.WalkNodeEvaluator;
 import net.minecraft.world.phys.*;
 
-/** Vanilla A* search with player-sized, client-side movement edges. No proxy mob is spawned. */
-class PlayerNavigation implements Robot.Step {
-    private final Robot r;
-    private final BlockPos target;
-    private final boolean pickup;
-    private final Terrain terrain;
-    private List<BlockPos> route;
-    private int index, stalled, replans, age;
-    private double capability = Double.NaN, bestDistance = Double.POSITIVE_INFINITY;
-    private Vec3 progressOrigin;
-    // Package-visible counters are also useful to the isolated movement regression suite.
-    int plans, jumps, movingTicks;
-
-    PlayerNavigation(Robot r, BlockPos target, boolean pickup) {
-        this.r = r;
-        this.target = target.immutable();
-        this.pickup = pickup;
-        terrain = new Terrain(r);
+/** Shape-based A*: half-block horizontal lattice, exact collision-surface heights.
+ * Only ordinary player input is emitted. Never moves entities or changes blocks. */
+final class PlayerNavigation implements Robot.Step {
+    final Robot r;
+    final BlockPos target;
+    final boolean pickup;
+    final UUID merchant;
+    final Terrain terrain;
+    List<Vec3> route;
+    int index, age, stalled, replans, plans, jumps, movingTicks, centeringTicks, settling;
+    double best=Double.POSITIVE_INFINITY;
+    boolean jumping;
+    Vec3 launch;
+    final Set<Key> rejectedGoals=new HashSet<>();
+    record Key(int x,int y,int z) {
+        Vec3 point(){return new Vec3(x/8.0,y/16.0,z/8.0);}
+        static Key of(Vec3 p){return new Key((int)Math.round(p.x*8),(int)Math.round(p.y*16),(int)Math.round(p.z*8));}
     }
+    record Visit(Key key,double cost,double score) {}
+    PlayerNavigation(Robot r,BlockPos target,boolean pickup){this(r,target,pickup,null);}
+    PlayerNavigation(Robot r,net.minecraft.world.entity.npc.villager.Villager merchant){this(r,merchant.blockPosition(),false,merchant.getUUID());}
+    private PlayerNavigation(Robot r,BlockPos target,boolean pickup,UUID merchant){this.r=r;this.target=target.immutable();this.pickup=pickup;this.merchant=merchant;terrain=new Terrain(r);}
 
-    @Override public boolean tick() {
-        var player = r.mc.player;
-        r.require(r.inside(target), "寻路目标超出工坊范围");
-        age++;
-        if (player.onGround() && reached(player.position(), 3.4)) {
-            r.release();
-            return true;
+    @Override public boolean tick(){
+        var p=r.mc.player;age++;
+        r.require(r.inside(target),"寻路目标超出工坊范围: "+target);
+        if(p.onGround()&&reached(p.position(),3.2)){r.release();return true;}
+        if(route==null){
+            r.release();if(!p.onGround())return false;
+            // A closing lid or an edge step can leave onGround true for one update.
+            // Release input and let ordinary physics settle before rejecting the start.
+            if(!terrain.clear(p.position())||!terrain.supported(p.position())){
+                if(++settling<=20)return false;
+            }else settling=0;
+            plan();
         }
-        double currentCapability = terrain.jumpHeight(terrain.playerNode());
-        if (player.onGround() && (route == null || Math.abs(currentCapability - capability) > .01)) {
-            plan(currentCapability);
+        if(index>=route.size()){replan("route end");return false;}
+        Vec3 dest=route.get(index),actual=p.position();
+        // The final anchor is never consumed by proximity alone: actual line of sight
+        // must satisfy reached(), otherwise a thin panel can hide the container.
+        if(p.onGround()&&index+1<route.size()&&Math.abs(actual.y-dest.y)<.08&&actual.subtract(dest).horizontalDistance()<.045
+            &&terrain.edge(actual,route.get(index+1))){
+            index++;stalled=0;best=Double.POSITIVE_INFINITY;jumping=false;
+            if(index>=route.size()){r.release();return false;}
+            dest=route.get(index);
         }
-        if (route == null) { r.release(); return false; }
-
-        // Consume nodes in this tick, without the old one-tick key release at every block.
-        while (index < route.size() && near(terrain.feet(route.get(index)), .32)) {
-            index++;
-            bestDistance = Double.POSITIVE_INFINITY;
-            stalled = 0;
-        }
-        if (index >= route.size()) {
-            r.release();
-            if (player.onGround()) replan("nodes exhausted");
-            return false;
-        }
-        BlockPos next = route.get(index);
-        Vec3 destination = terrain.feet(next);
-        if (player.onGround()) {
-            BlockPos from = terrain.playerNode();
-            // Smoothed routes start at the actual position, not the center of its containing cell.
-            boolean clearEdge = Math.abs(destination.y - player.getY()) < .05
-                ? terrain.levelSegment(player.position(), destination) : terrain.transition(from, next);
-            if (!terrain.standable(next) || !clearEdge) {
-                r.release();
-                replan("edge changed from=" + from + " next=" + next);
-                return false;
-            }
-            // Only skip nodes on a supported, collision-free level segment.
-            int end = Math.min(route.size() - 1, index + 5);
-            for (int i = end; i > index; i--) {
-                Vec3 candidate = terrain.feet(route.get(i));
-                boolean flat = Math.abs(candidate.y - player.getY()) < .05;
-                for (int j = index; flat && j <= i; j++)
-                    flat = Math.abs(terrain.feet(route.get(j)).y - candidate.y) < .05;
-                if (flat && terrain.levelSegment(player.position(), candidate)) {
-                    index = i; next = route.get(i); destination = candidate;
-                    break;
-                }
+        // Smooth only supported, fully swept level segments. Never cut a rising corner.
+        if(p.onGround()&&!jumping){
+            for(int n=Math.min(index+10,route.size()-1);n>index;n--){
+                boolean flat=true;for(int k=index;k<=n;k++)if(Math.abs(route.get(k).y-actual.y)>.02){flat=false;break;}
+                if(flat&&terrain.levelSegment(actual,route.get(n))){index=n;dest=route.get(n);break;}
             }
         }
-
-        Vec3 delta = destination.subtract(player.position());
-        double horizontal = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
-        float desiredYaw = (float)(Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90);
-        float turn = Mth.wrapDegrees(desiredYaw - player.getYRot());
-        player.setYRot(player.getYRot() + Mth.clamp(turn, -20, 20));
-        player.setXRot(player.getXRot() + Mth.clamp(10 - player.getXRot(), -4, 4));
-        boolean aligned = Math.abs(Mth.wrapDegrees(desiredYaw - player.getYRot())) < 25;
-        boolean forward = aligned && horizontal > .17;
-        r.navigating = true;
-        // Use vanilla sprint input so hunger, item use and collisions retain their normal rules.
-        r.sprintKey(forward);
-        if (!forward) player.setSprinting(false);
-        r.mc.options.keyUp.setDown(forward);
-        // Jump only for a verified rising edge. Collision by itself never requests a jump.
-        boolean jump = forward && player.onGround() && delta.y > player.maxUpStep() + .02
-            && horizontal < 1.45;
-        r.mc.options.keyJump.setDown(jump);
-        if (jump) jumps++;
-        if (forward) movingTicks++;
-
-        double distance = player.position().distanceTo(destination);
-        if (distance + .05 < bestDistance) { bestDistance = distance; stalled = 0; }
-        else stalled++;
-        if (progressOrigin == null || player.position().distanceTo(progressOrigin) > 1.5) {
-            progressOrigin = player.position(); replans = 0;
+        Vec3 delta=dest.subtract(actual);double horizontal=delta.horizontalDistance();
+        boolean rise=delta.y>p.maxUpStep()+.02;
+        if(p.onGround()&&!jumping){
+            if(!terrain.edge(actual,dest)){
+                replan("edge changed actual="+actual+" next="+dest);return false;
+            }
+            if(rise){jumping=true;launch=actual;jumps++;}
         }
-        if (stalled >= 45 && player.onGround()) { r.release(); replan("no progress"); }
-        r.require(age < 2200, "寻路超时，停止移动");
+        // Rise vertically before crossing a ledge; this also handles narrow trapdoor tops.
+        boolean hold=jumping&&actual.y<dest.y+.015&&p.getDeltaMovement().y>=0;
+        if(jumping&&p.onGround()&&actual.distanceTo(launch)>.05&&actual.y<dest.y-.1){
+            jumping=false;replan("jump landed below ledge");return false;
+        }
+        float yaw=(float)(Math.toDegrees(Math.atan2(delta.z,delta.x))-90);
+        float turn=Mth.wrapDegrees(yaw-p.getYRot());
+        p.setYRot(p.getYRot()+Mth.clamp(turn,-30,30));p.setXRot(10);
+        boolean aligned=Math.abs(Mth.wrapDegrees(yaw-p.getYRot()))<4;
+        boolean sprint=p.onGround()&&!jumping&&aligned&&horizontal>1.4&&Math.abs(delta.y)<.02
+            &&terrain.wideSegment(actual,actual.lerp(dest,Math.min(1,2/horizontal)));
+        double along=horizontal<1e-5?0:p.getDeltaMovement().dot(new Vec3(delta.x/horizontal,0,delta.z/horizontal));
+        double desired=Math.min(p.onGround()?(sprint?.36:.215):.17,horizontal*.55);
+        // Account for momentum instead of repeatedly overshooting narrow turn anchors.
+        float input=hold||!aligned?0:(float)Mth.clamp((desired-along)/(p.onGround()?.1:.02),-1,1);
+        if(horizontal<.001)input=0;
+        r.navigating=true;r.navigationScale=input;
+        r.mc.options.keyUp.setDown(Math.abs(input)>.001);
+        r.mc.options.keyJump.setDown(jumping&&p.onGround()&&actual.distanceTo(launch)<.05);
+        r.sprintKey(sprint&&input>.8);if(!sprint)p.setSprinting(false);
+        if(Math.abs(input)>.01)movingTicks++;if(horizontal<.5)centeringTicks++;
+        double distance=actual.distanceTo(dest);
+        if(distance+.025<best){best=distance;stalled=0;}else stalled++;
+        if(stalled>80&&p.onGround()){
+            if(index==route.size()-1)rejectedGoals.add(Key.of(dest));
+            replan("no progress actual="+actual+" next="+dest);
+        }
+        r.require(age<6000,"寻路超时: "+target);
         return false;
     }
-
-    private boolean near(Vec3 point, double radius) {
-        return Math.abs(r.mc.player.getY() - point.y) < .15
-            && r.mc.player.position().subtract(point).horizontalDistance() < radius;
+    void replan(String reason){
+        r.release();if(r.running)r.record("NAV REPLAN "+reason+" target="+target);
+        r.require(++replans<=8,"移动受阻，重新寻路后仍不可达: "+target);
+        route=null;jumping=false;stalled=0;best=Double.POSITIVE_INFINITY;
     }
-
-    private boolean reached(Vec3 feet, double range) {
-        if (pickup) return feet.distanceTo(terrain.feet(target)) < .5;
-        AABB body = terrain.body(feet);
-        if (body.maxX > target.getX() && body.minX < target.getX() + 1
-            && body.maxZ > target.getZ() && body.minZ < target.getZ() + 1) return false;
-        Vec3 eye = feet.add(0, r.mc.player.getEyeHeight(), 0);
-        Vec3 aim = Vec3.atCenterOf(target);
-        if (eye.distanceTo(aim) >= range) return false;
-        var hit = r.mc.level.clip(new ClipContext(eye, aim, ClipContext.Block.OUTLINE,
-            ClipContext.Fluid.NONE, r.mc.player));
-        return hit.getType() == HitResult.Type.MISS || hit.getBlockPos().equals(target);
-    }
-
-    private void replan(String reason) {
-        if (r.task != null && r.running) r.record("NAV REPLAN " + reason + " target=" + target
-            + " position=" + r.mc.player.position() + " route=" + route);
-        r.require(++replans <= 3, "移动受阻，重新寻路后仍不可达");
-        route = null; stalled = 0; bestDistance = Double.POSITIVE_INFINITY;
-    }
-
-    private void plan(double jumpHeight) {
-        BlockPos start = terrain.playerNode();
-        r.require(terrain.standable(start), "玩家不在安全站立面上");
-        var goals = new LinkedHashSet<BlockPos>();
-        if (pickup) { if (terrain.standable(target)) goals.add(target); }
-        else for (BlockPos p : BlockPos.betweenClosed(target.offset(-4, -4, -4), target.offset(4, 3, 4))) {
-            if (terrain.standable(p) && reached(terrain.feet(p), 3.0)) goals.add(p.immutable());
+    boolean reached(Vec3 feet,double range){
+        if(pickup)return feet.distanceTo(Vec3.atBottomCenterOf(target))<.65;
+        if(merchant!=null){
+            var entity=r.mc.level.getEntity(merchant);
+            if(!(entity instanceof net.minecraft.world.entity.npc.villager.Villager villager)||!villager.isAlive()||terrain.body(feet).intersects(villager.getBoundingBox()))return false;
+            return merchantAim(r,villager,feet,range)!=null;
         }
-        r.require(!goals.isEmpty(), "目标附近没有可交互的安全站立点: " + target);
-        var evaluator = new PlayerNodes(terrain, start);
-        var region = new PathNavigationRegion(r.mc.level, r.cfg.min().offset(-1, -1, -1), r.cfg.max().offset(1, 4, 1));
-        // PathFinder only passes Mob to prepare(); our evaluator uses the actual LocalPlayer.
-        var path = new PathFinder(evaluator, 30000).findPath(region, null, goals, 512, 0, 1);
-        r.require(path != null && path.canReach(), "没有安全路线: " + target);
-        route = new ArrayList<>();
-        for (int i = 0; i < path.getNodeCount(); i++) route.add(path.getNodePos(i));
-        index = 0; capability = jumpHeight; bestDistance = Double.POSITIVE_INFINITY; stalled = 0; plans++;
+        var body=terrain.body(feet);
+        if(body.maxX>target.getX()&&body.minX<target.getX()+1&&body.maxZ>target.getZ()&&body.minZ<target.getZ()+1)return false;
+        Vec3 eye=feet.add(0,r.mc.player.getEyeHeight(),0),aim=Vec3.atCenterOf(target);
+        if(eye.distanceTo(aim)>=range)return false;
+        var hit=r.mc.level.clip(new ClipContext(eye,aim,ClipContext.Block.OUTLINE,ClipContext.Fluid.NONE,r.mc.player));
+        return hit.getType()==HitResult.Type.MISS||hit.getBlockPos().equals(target);
     }
-
-    static final class PlayerNodes extends NodeEvaluator {
-        private final Terrain terrain;
-        private final BlockPos start;
-        PlayerNodes(Terrain terrain, BlockPos start) { this.terrain = terrain; this.start = start; }
-        @Override public void prepare(PathNavigationRegion region, Mob unused) { nodes.clear(); }
-        @Override public void done() { nodes.clear(); }
-        @Override public Node getStart() { return getNode(start); }
-        @Override public Target getTarget(double x, double y, double z) { return new Target(Mth.floor(x), Mth.floor(y), Mth.floor(z)); }
-        @Override public PathType getPathTypeOfMob(PathfindingContext context, int x, int y, int z, Mob mob) { return getPathType(context, x, y, z); }
-        @Override public PathType getPathType(PathfindingContext context, int x, int y, int z) { return terrain.standable(new BlockPos(x, y, z)) ? PathType.WALKABLE : PathType.BLOCKED; }
-        @Override public int getNeighbors(Node[] result, Node node) {
-            int count = 0;
-            BlockPos from = node.asBlockPos();
-            for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
-                if (dx == 0 && dz == 0) continue;
-                for (int dy : new int[]{0, 1, 2, -1}) {
-                    BlockPos to = from.offset(dx, dy, dz);
-                    if (terrain.standable(to) && terrain.transition(from, to)) {
-                        Node next = getNode(to);
-                        if (!next.closed) { next.type = PathType.WALKABLE; next.costMalus = dy > 0 ? .5f * dy : 0; result[count++] = next; }
-                        break;
-                    }
+    /** Aim inside the living entity's box: a counter can hide either its feet or its eyes. */
+    static Vec3 merchantAim(Robot r,net.minecraft.world.entity.npc.villager.Villager villager,Vec3 feet,double range){
+        Vec3 eye=feet.add(0,r.mc.player.getEyeHeight(),0);var box=villager.getBoundingBox();var center=box.getCenter();
+        double height=box.maxY-box.minY,dx=(box.maxX-box.minX)*.25,dz=(box.maxZ-box.minZ)*.25;
+        if(eye.distanceTo(center)>range+height)return null;
+        for(var aim:List.of(villager.getEyePosition(),center,center.add(0,-height*.25,0),center.add(0,height*.25,0),center.add(dx,0,0),center.add(-dx,0,0),center.add(0,0,dz),center.add(0,0,-dz))){
+            if(eye.distanceTo(aim)>=range)continue;
+            // Entity visibility must ignore the selectable outline of signs;
+            // physical counter/wall collisions still block this interaction ray.
+            if(r.mc.level.clip(new ClipContext(eye,aim,ClipContext.Block.COLLIDER,ClipContext.Fluid.NONE,r.mc.player)).getType()==HitResult.Type.MISS)return aim;
+        }
+        return null;
+    }
+    double heuristic(Vec3 p){
+        if(merchant!=null&&r.mc.level.getEntity(merchant) instanceof net.minecraft.world.entity.npc.villager.Villager villager)return Math.max(0,p.add(0,r.mc.player.getEyeHeight(),0).distanceTo(villager.getEyePosition())-2.8);
+        return Math.max(0,p.distanceTo(Vec3.atCenterOf(target))-(pickup?.4:2.8));
+    }
+    void plan(){
+        terrain.columns.clear();Vec3 actual=r.mc.player.position();
+        r.require(terrain.clear(actual)&&terrain.supported(actual),"玩家当前位置没有安全支撑: "+actual+" clear="+terrain.clear(actual)+" supported="+terrain.supported(actual));
+        var open=new PriorityQueue<Visit>(Comparator.comparingDouble(Visit::score));
+        var costs=new HashMap<Key,Double>();var parents=new HashMap<Key,Key>();
+        int sx=(int)Math.round(actual.x*2),sz=(int)Math.round(actual.z*2);
+        for(int dx=-2;dx<=2;dx++)for(int dz=-2;dz<=2;dz++)for(Vec3 v:terrain.column(sx+dx,sz+dz)){
+            if(!terrain.edge(actual,v))continue;
+            var key=Key.of(v);double cost=actual.distanceTo(v);costs.put(key,cost);parents.put(key,null);open.add(new Visit(key,cost,cost+heuristic(v)));
+        }
+        Key goal=null;int visited=0;
+        while(!open.isEmpty()&&visited++<60000){
+            Visit visit=open.remove();if(visit.cost()>costs.getOrDefault(visit.key(),Double.POSITIVE_INFINITY)+1e-7)continue;
+            Key key=visit.key();Vec3 from=key.point();
+            if(!rejectedGoals.contains(key)&&goalVisible(from)){goal=key;break;}
+            for(int dx=-2;dx<=2;dx++)for(int dz=-2;dz<=2;dz++){
+                if(dx==0&&dz==0||Math.abs(dx)+Math.abs(dz)>2)continue;
+                for(Vec3 to:terrain.column((int)Math.round(from.x*2)+dx,(int)Math.round(from.z*2)+dz)){
+                    double rise=to.y-from.y;
+                    if(rise>terrain.jumpHeight()+.001||rise< -3.0)continue;
+                    if(Math.abs(dx)+Math.abs(dz)==2&&Math.abs(dx)==2&&Math.abs(rise)<.02)continue;
+                    if(!terrain.edge(from,to))continue;
+                    Key next=Key.of(to);double cost=visit.cost()+from.distanceTo(to)+(rise>.6?.6:0);
+                    if(cost+1e-6>=costs.getOrDefault(next,Double.POSITIVE_INFINITY))continue;
+                    costs.put(next,cost);parents.put(next,key);open.add(new Visit(next,cost,cost+heuristic(to)));
                 }
             }
-            return count;
         }
+        if(goal==null&&r.running){
+            var nearby=new ArrayList<String>();
+            for(int x=(target.getX()-3)*2;x<=(target.getX()+3)*2;x++)for(int z=(target.getZ()-4)*2;z<=(target.getZ()+4)*2;z++)
+                for(Vec3 v:terrain.column(x,z))if(v.y>=target.getY()-5)nearby.add(v+" cost="+costs.get(Key.of(v))+" goal="+reached(v,2.95));
+            r.record("NAV NO ROUTE surfaces="+nearby);
+        }
+        r.require(goal!=null,"没有安全路线: "+target+" 起点="+actual+" 已搜索="+visited);
+        var points=new LinkedList<Vec3>();for(Key k=goal;k!=null;k=parents.get(k))points.addFirst(k.point());
+        route=points;index=0;plans++;stalled=0;best=Double.POSITIVE_INFINITY;
+        if(r.running)r.record("NAV PLAN target="+target+" start="+actual+" nodes="+route.size()+" searched="+visited+" route="+route);
+    }
+    boolean goalVisible(Vec3 point){
+        if(!reached(point,3.1))return false;
+        if(pickup)return true;
+        // Reject sight lines that only graze a panel edge at an idealized coordinate.
+        for(Vec3 d:List.of(new Vec3(.04,0,0),new Vec3(-.04,0,0),new Vec3(0,0,.04),new Vec3(0,0,-.04)))
+            if(!reached(point.add(d),3.15))return false;
+        return true;
     }
 
-    /** Collision-shape checks also account for slabs, stairs, player width and headroom. */
     static final class Terrain extends WalkNodeEvaluator {
-        private final Robot r;
-        Terrain(Robot r) { this.r = r; }
-        BlockPos playerNode() { return BlockPos.containing(r.mc.player.getX(), Math.ceil(r.mc.player.getY() - .05), r.mc.player.getZ()); }
-        Vec3 feet(BlockPos p) { return new Vec3(p.getX() + .5, getFloorLevel(r.mc.level, p), p.getZ() + .5); }
-        AABB body(Vec3 p) {
-            double half = r.mc.player.getBbWidth() / 2.0;
-            return new AABB(p.x - half, p.y + .001, p.z - half, p.x + half, p.y + r.mc.player.getBbHeight(), p.z + half);
-        }
-        boolean standable(BlockPos p) {
-            if (!r.inside(p) || !r.mc.level.hasChunkAt(p) || !r.mc.level.hasChunkAt(p.below())) return false;
-            Vec3 feet = feet(p);
-            if (feet.y < p.getY() - .51 || feet.y > p.getY() + .01) return false;
-            return clear(feet) && supported(feet);
-        }
-        boolean supported(Vec3 feet) {
-            return !r.mc.level.noCollision(r.mc.player, body(feet).move(0, -.06, 0));
-        }
-        boolean clear(Vec3 feet) {
-            AABB box = body(feet);
-            if (!r.mc.level.getWorldBorder().isWithinBounds(box) || !r.mc.level.noCollision(r.mc.player, box)) return false;
-            for (BlockPos p : BlockPos.betweenClosed(BlockPos.containing(box.minX, box.minY - .1, box.minZ), BlockPos.containing(box.maxX, box.maxY, box.maxZ))) {
-                if (!r.mc.level.hasChunkAt(p) || !r.mc.level.getFluidState(p).isEmpty()) return false;
-                PathType type = getPathTypeFromState(r.mc.level, p);
-                if (switch (type) {
-                    case LAVA, WATER, FIRE, FIRE_IN_NEIGHBOR, DAMAGING, DAMAGING_IN_NEIGHBOR,
-                        DAMAGE_CAUTIOUS, POWDER_SNOW, ON_TOP_OF_POWDER_SNOW, FENCE, STICKY_HONEY -> true;
-                    default -> false;
-                }) return false;
+        final Robot r;
+        final Map<Long,List<Vec3>> columns=new HashMap<>();
+        Terrain(Robot r){this.r=r;}
+        AABB body(Vec3 p){double half=r.mc.player.getBbWidth()/2.0;return new AABB(p.x-half,p.y+.002,p.z-half,p.x+half,p.y+r.mc.player.getBbHeight()-.002,p.z+half);}
+        boolean collision(AABB box){for(var shape:r.mc.level.getBlockCollisions(r.mc.player,box))if(!shape.isEmpty())return true;return false;}
+        boolean supported(Vec3 p){double half=r.mc.player.getBbWidth()/2.0-1e-7;return collision(new AABB(p.x-half,p.y-.04,p.z-half,p.x+half,p.y+.001,p.z+half));}
+        boolean clear(Vec3 p){
+            AABB box=body(p);
+            if(!r.inside(BlockPos.containing(p))||!r.mc.level.getWorldBorder().isWithinBounds(box)||collision(box))return false;
+            for(BlockPos b:BlockPos.betweenClosed(BlockPos.containing(box.minX+1e-7,box.minY-.05,box.minZ+1e-7),BlockPos.containing(box.maxX-1e-7,box.maxY-1e-7,box.maxZ-1e-7))){
+                if(!r.mc.level.hasChunkAt(b))return false;
+                var fluid=r.mc.level.getFluidState(b);
+                // Standing beside a bubble column (or above a waterlogged support)
+                // does not immerse the player. Test the actual fluid volume.
+                if(!fluid.isEmpty())for(AABB volume:fluid.getShape(r.mc.level,b).toAabbs())if(volume.move(b).intersects(box))return false;
+                if(switch(getPathTypeFromState(r.mc.level,b)){
+                    case FIRE,FIRE_IN_NEIGHBOR,DAMAGING,DAMAGING_IN_NEIGHBOR,DAMAGE_CAUTIOUS,POWDER_SNOW,ON_TOP_OF_POWDER_SNOW,STICKY_HONEY->true;default->false;})return false;
             }
             return true;
         }
-        double jumpHeight(BlockPos from) { return jumpHeight(from, true); }
-        private double jumpHeight(BlockPos from, boolean durable) {
-            var player = r.mc.player;
-            var effect = player.getEffect(MobEffects.JUMP_BOOST);
-            // Do not commit a jump that depends on an effect about to expire.
-            double boost = effect != null && (!durable || effect.isInfiniteDuration() || effect.getDuration() > 30) ? player.getJumpBoostPower() : 0;
-            double factor = r.mc.level.getBlockState(from.below()).getBlock().getJumpFactor();
-            double velocity = player.getAttributeValue(Attributes.JUMP_STRENGTH) * factor + boost;
-            double height = 0;
-            double gravity = player.getGravity();
-            if (gravity <= 0) return 0; // Unsupported custom physics: fail closed.
-            for (int i = 0; i < 80 && velocity > 0; i++) { height += velocity; velocity = (velocity - gravity) * .98; }
-            return velocity > 0 ? 0 : height;
+        List<Vec3> column(int x,int z){
+            long key=((long)x<<32)^(z&0xffffffffL);return columns.computeIfAbsent(key,k->{
+                var result=new ArrayList<Vec3>(samples(x*.5,z*.5));
+                var regularHeights=new HashSet<Double>();for(Vec3 p:result)regularHeights.add(p.y);
+                // Keep normal terrain sparse; offset samples expose narrow ledges.
+                for(double dx:new double[]{-.125,0,.125})for(double dz:new double[]{-.125,0,.125}){
+                    if(dx==0&&dz==0)continue;
+                    for(Vec3 p:samples(x*.5+dx,z*.5+dz))if(!regularHeights.contains(p.y))result.add(p);
+                }
+                return result;
+            });
         }
-        boolean sweep(Vec3 a, Vec3 b, boolean support) {
-            int steps = Math.max(1, (int)Math.ceil(a.distanceTo(b) / .2));
-            for (int i = 0; i <= steps; i++) {
-                Vec3 p = a.lerp(b, i / (double)steps);
-                if (!r.inside(BlockPos.containing(p.x, Math.ceil(p.y - .05), p.z)) || !clear(p) || (support && !supported(p))) return false;
+        List<Vec3> samples(double px,double pz){
+            var heights=new TreeSet<Double>();
+            for(BlockPos b:BlockPos.betweenClosed(BlockPos.containing(px-.299,r.cfg.min().getY()-1,pz-.299),BlockPos.containing(px+.299,r.cfg.max().getY(),pz+.299))){
+                if(!r.mc.level.hasChunkAt(b))continue;
+                for(AABB shape:r.mc.level.getBlockState(b).getCollisionShape(r.mc.level,b).toAabbs()){
+                    AABB a=shape.move(b);if(a.maxX>px-.299&&a.minX<px+.299&&a.maxZ>pz-.299&&a.minZ<pz+.299)heights.add(a.maxY);
+                }
             }
-            return true;
+            var result=new ArrayList<Vec3>();for(double y:heights){Vec3 p=new Vec3(px,y,pz);if(clear(p)&&supported(p))result.add(p);}return result;
         }
-        boolean levelSegment(Vec3 a, Vec3 b) { return Math.abs(a.y - b.y) < .05 && sweep(a, b, true); }
-        boolean transition(BlockPos from, BlockPos to) {
-            Vec3 a = feet(from), b = feet(to);
-            double rise = b.y - a.y;
-            if (Math.abs(rise) < .05) return levelSegment(a, b);
-            if (Math.abs(from.getX() - to.getX()) + Math.abs(from.getZ() - to.getZ()) != 1) return false;
-            if (rise > 0) {
-                boolean step = rise <= r.mc.player.maxUpStep();
-                if (!step && (rise + .03 > jumpHeight(from) || rise > 2.01)) return false;
-                // Clearance uses the full current arc, even if its effect expires soon.
-                double apex = step ? rise : jumpHeight(from, false) + .02;
-                Vec3 high = a.add(0, apex, 0), across = new Vec3(b.x, high.y, b.z);
-                return sweep(a, high, false) && sweep(high, across, false) && sweep(across, b, false);
+
+        double jumpHeight(){
+            var p=r.mc.player;var effect=p.getEffect(MobEffects.JUMP_BOOST);
+            double boost=effect!=null&&(effect.isInfiniteDuration()||effect.getDuration()>30)?p.getJumpBoostPower():0;
+            double v=p.getAttributeValue(Attributes.JUMP_STRENGTH)+boost,h=0;
+            for(int i=0;i<80&&v>0;i++){h+=v;v=(v-p.getGravity())*.98;}return h-.025;
+        }
+        boolean sweep(Vec3 a,Vec3 b,boolean support){
+            int n=Math.max(1,(int)Math.ceil(a.distanceTo(b)/.1));
+            for(int i=0;i<=n;i++){Vec3 p=a.lerp(b,i/(double)n);if(!clear(p)||support&&!supported(p))return false;}return true;
+        }
+        boolean levelSegment(Vec3 a,Vec3 b){return Math.abs(a.y-b.y)<.02&&sweep(a,b,true);}
+        boolean wideSegment(Vec3 a,Vec3 b){
+            int n=Math.max(1,(int)Math.ceil(a.distanceTo(b)/.2));
+            for(int i=0;i<=n;i++){Vec3 p=a.lerp(b,i/(double)n);if(collision(body(p).inflate(.15,0,.15))||!supported(p))return false;}return true;
+        }
+        boolean edge(Vec3 a,Vec3 b){
+            double rise=b.y-a.y;if(Math.abs(rise)<.02)return levelSegment(a,b);
+            if(a.subtract(b).horizontalDistance()>1.05||rise>jumpHeight()||rise< -3.0)return false;
+            if(rise>0){
+                // A low ceiling may truncate a vanilla jump without preventing landing.
+                // Require clearance above the destination, not the unobstructed full apex.
+                double apex=rise<=r.mc.player.maxUpStep()?rise:rise+.05;
+                Vec3 high=a.add(0,apex,0),over=new Vec3(b.x,high.y,b.z);
+                return sweep(a,high,false)&&sweep(high,over,false)&&sweep(over,b,false);
             }
-            if (rise < -1.01) return false;
-            Vec3 over = new Vec3(b.x, a.y, b.z);
-            return sweep(a, over, false) && sweep(over, b, false);
+            Vec3 over=new Vec3(b.x,a.y,b.z);return sweep(a,over,false)&&sweep(over,b,false);
         }
     }
 }

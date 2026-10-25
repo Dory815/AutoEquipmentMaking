@@ -22,6 +22,8 @@ final class RemoteOffers {
         if(!(entity instanceof Villager)||!entity.getUUID().equals(expected))throw new IllegalStateException("村民实体改变，停止读取报价");
         Object cache=manager.getClass().getMethod("getCache").invoke(manager),tracker=manager.getClass().getMethod("getRequestTracker").invoke(manager);
         if((boolean)tracker.getClass().getMethod("hasPendingLocalEntity",int.class).invoke(tracker,entityId))return null;
+        // MaLiLib's NBT getter returns an empty compound when the entry expired.
+        if(cache.getClass().getMethod("getEntityDataEntryFromCache",int.class).invoke(cache,entityId)==null)return null;
         CompoundTag nbt=(CompoundTag)cache.getClass().getMethod("getEntityNbtFromCache",int.class).invoke(cache,entityId);
         if(nbt==null)return null;
         if(!nbt.read("UUID",UUIDUtil.CODEC).orElseThrow(()->new IllegalStateException("Servux 村民回复缺少有效 UUID")).equals(expected))throw new IllegalStateException("Servux 村民 UUID 与请求不一致");
@@ -30,5 +32,10 @@ final class RemoteOffers {
         // An uninitialized villager may not have Offers yet; the caller then opens its menu once.
         if(!nbt.contains("Offers"))return new MerchantOffers();
         return MerchantOffers.CODEC.parse(ops,nbt.getCompound("Offers").orElseThrow(()->new IllegalStateException("Servux 报价数据格式无效"))).getOrThrow();
+    }
+    static void refreshMissing(Object manager,int entityId)throws ReflectiveOperationException{
+        Object cache=manager.getClass().getMethod("getCache").invoke(manager),tracker=manager.getClass().getMethod("getRequestTracker").invoke(manager);
+        if(!(boolean)tracker.getClass().getMethod("hasPendingLocalEntity",int.class).invoke(tracker,entityId)
+            &&cache.getClass().getMethod("getEntityDataEntryFromCache",int.class).invoke(cache,entityId)==null)refresh(manager,entityId);
     }
 }

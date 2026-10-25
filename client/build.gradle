@@ -23,7 +23,7 @@ if (project.hasProperty('mcInstance')) {
 }
 
 def aemClientTest = providers.gradleProperty('aemClientTest').getOrElse('all')
-if (!(aemClientTest in ['all', 'navigation', 'formal-settings', 'remote-inventory', 'servux-protocol', 'v11-edges', 'source-relocation', 'book-upgrade', 'upgrade-shortage', 'anvil-supply', 'v11-production', 'v11-all-books', 'v11-trading', 'v11-food', 'complex'])) {
+if (!(aemClientTest in ['all', 'villager-navigation', 'bulk-tools', 'hall-navigation', 'partial-equipment', 'fixture-copy', 'task-restart', 'formal-settings', 'remote-inventory', 'servux-protocol', 'v11-edges', 'source-relocation', 'book-upgrade', 'upgrade-shortage', 'anvil-supply', 'v11-production', 'v11-all-books', 'v11-trading', 'v11-food', 'complex'])) {
     throw new GradleException('Unknown aemClientTest suite')
 }
 tasks.named('processGametestResources') {
@@ -32,8 +32,8 @@ tasks.named('processGametestResources') {
         filter { line ->
             if (aemClientTest != 'all') {
                 def metadata = new groovy.json.JsonSlurper().parseText(line)
-                def suites = ['navigation':'NavigationGameTest', 'formal-settings':'FormalSettingsGameTest', 'remote-inventory':'RemoteInventoryGameTest', 'source-relocation':'SourceRelocationGameTest', 'book-upgrade':'BookUpgradeGameTest', 'upgrade-shortage':'UpgradeShortageGameTest', 'anvil-supply':'AnvilSupplyGameTest', 'v11-production':'V11ProductionGameTest', 'v11-all-books':'AllBooksProcurementGameTest', 'v11-trading':'TradingGameTest', 'v11-food':'FoodGameTest', 'complex':'ComplexTerrainGameTest']
-                suites.putAll(['v11-edges':'ProcurementEdgesGameTest', 'servux-protocol':'ServuxProtocolGameTest'])
+                def suites = ['formal-settings':'FormalSettingsGameTest', 'remote-inventory':'RemoteInventoryGameTest', 'source-relocation':'SourceRelocationGameTest', 'book-upgrade':'BookUpgradeGameTest', 'upgrade-shortage':'UpgradeShortageGameTest', 'anvil-supply':'AnvilSupplyGameTest', 'v11-production':'V11ProductionGameTest', 'v11-all-books':'AllBooksProcurementGameTest', 'v11-trading':'TradingGameTest', 'v11-food':'FoodGameTest', 'complex':'ComplexTerrainGameTest']
+                suites.putAll(['villager-navigation':'VillagerNavigationGameTest', 'bulk-tools':'BulkToolsGameTest', 'hall-navigation':'TradingHallNavigationGameTest', 'partial-equipment':'PartialEquipmentGameTest', 'fixture-copy':'TradingHallCopyGameTest', 'v11-edges':'ProcurementEdgesGameTest', 'servux-protocol':'ServuxProtocolGameTest', 'task-restart':'TaskRestartGameTest'])
                 metadata.entrypoints['fabric-client-gametest'] = ["io.github.autoequipmentmaking.client.${suites[aemClientTest]}"]
                 return groovy.json.JsonOutput.toJson(metadata)
             }

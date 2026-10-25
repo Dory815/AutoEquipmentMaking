@@ -16,7 +16,8 @@ public final class RemoteInventoryGameTest implements FabricClientGameTest {
     public static final class Cache {
         final Map<BlockPos,CompoundTag> values=new HashMap<>();
         public void removeFromCache(BlockPos p){values.remove(p);}
-        public CompoundTag getBlockEntityNbtFromCache(BlockPos p){return values.get(p);}
+        public CompoundTag getBlockEntityNbtFromCache(BlockPos p){return values.getOrDefault(p,new CompoundTag());}
+        public Object getBlockEntityDataEntryFromCache(BlockPos p){return values.get(p);}
     }
     public static final class Tracker {
         final Set<BlockPos> pending=new HashSet<>();
@@ -49,6 +50,9 @@ public final class RemoteInventoryGameTest implements FabricClientGameTest {
                 check(RemoteInventory.read(m,box)==null,"Client placeholder was accepted before server acknowledgement");
                 m.reply(box,new CompoundTag());var empty=RemoteInventory.read(m,box);
                 check(empty!=null&&empty.getContainerSize()==27&&empty.isEmpty(),"Empty server shulker was not recognized");
+                m.cache.removeFromCache(box);check(RemoteInventory.read(m,box)==null,"Expired cache must not become an empty shulker");
+                int retries=m.requests;RemoteInventory.refreshMissing(m,box);RemoteInventory.refreshMissing(m,box);
+                check(m.requests==retries+1&&m.tracker.hasPendingLocalBlockEntity(box),"Cache loss must issue one refresh while awaiting reply");
                 m.reply(box,inventory(item(26,Items.DIAMOND,10)));var sparse=RemoteInventory.read(m,box);
                 check(sparse.getContainerSize()==27&&sparse.getItem(26).is(Items.DIAMOND)&&sparse.getItem(26).getCount()==10&&sparse.getItem(0).isEmpty(),"Sparse server slots were truncated or renumbered");
                 int requests=m.requests;RemoteInventory.refresh(m,left);check(m.requests==requests+2,"Both chest halves must be refreshed");
@@ -56,6 +60,9 @@ public final class RemoteInventoryGameTest implements FabricClientGameTest {
                 check(RemoteInventory.read(m,left)==null,"Double chest accepted one unconfirmed half");
                 m.reply(right,inventory(item(0,Items.STICK,64)));var combined=RemoteInventory.read(m,left);
                 check(combined.getContainerSize()==54&&combined.getItem(0).is(Items.STICK)&&combined.getItem(53).is(Items.DIAMOND),"Double chest order or capacity did not match the server menu");
+                m.cache.removeFromCache(right);check(RemoteInventory.read(m,left)==null,"Expired half of a double chest accepted as empty");
+                retries=m.requests;RemoteInventory.refreshMissing(m,left);RemoteInventory.refreshMissing(m,left);
+                check(m.requests==retries+2,"Expired double chest must refresh both halves once");
                 boolean rejected=false;try{RemoteInventory.decode(inventory(item(0,Items.DIAMOND,1),item(0,Items.STICK,1)));}catch(IllegalStateException expected){rejected=true;}
                 check(rejected,"Duplicate server slots were silently overwritten");
             }catch(ReflectiveOperationException e){throw new AssertionError(e);}});

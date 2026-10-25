@@ -36,11 +36,14 @@ public final class Robot {
     final Deque<Step> queue=new ArrayDeque<>();
     final List<Source> stock=new ArrayList<>();
     final List<Planned> plans=new ArrayList<>();
+    BaseEquipmentPlan basePlan;
     final List<Target> kit=new ArrayList<>();
     final List<Target> kitTemplate=new ArrayList<>();
     Set<Block> taskBoxBlocks=Set.of(Blocks.DYED_SHULKER_BOX.lightBlue());
     int scanLength=21,scanWidth=21,scanHeight=5,requestedKits=-1;
     boolean allowTrading=true,allowSpareAnvils=true,awaitingDelivery;
+    boolean bulkMode,allowOldEquipment=true;
+    String toolName;
     static final Map<Integer,Long> revisions=new HashMap<>();
     static final Map<Integer,Long> playerSlotRevisions=new HashMap<>();
     static long foodRevision;
@@ -53,8 +56,7 @@ public final class Robot {
     BlockPos batchCenter,activePacking;
     int deliveredKits;
     BlockPos packing(){return activePacking==null?cfg.packing():activePacking;}
-    boolean running,uncertain,mining,awaitingGood,manualPaused,navigating;
-    public boolean ownsNavigation(){return running&&navigating;}
+    boolean running,uncertain,mining,awaitingGood,manualPaused;
     java.util.concurrent.CompletableFuture<List<Planned>> planning;
     public boolean isRunning(){return running;}
     public boolean ownsMining(){return running&&mining;}
@@ -78,7 +80,7 @@ public final class Robot {
     void announce(String message){say(message);record("NOTICE "+message);if(mc.getConnection()!=null&&cfg.root.getAsJsonObject("notifications").get("chatEnabled").getAsBoolean())mc.getConnection().sendChat("[新人装备] "+message);}
     void record(String event){
         try{var o=new JsonObject();o.addProperty("time",System.currentTimeMillis());o.addProperty("task",task);o.addProperty("server",server);o.addProperty("dimension",dimension);o.addProperty("state",state);o.addProperty("completed",completed);o.addProperty("deliveredKits",deliveredKits);o.addProperty("batchSize",batchBoxes.size());if(activePacking!=null)o.add("taskBox",WorkConfig.pos(activePacking));o.addProperty("event",event);
-            if(mc.player!=null&&mc.level!=null){o.add("playerPosition",WorkConfig.pos(mc.player.blockPosition()));o.addProperty("levels",mc.player.experienceLevel);var inv=new JsonArray();for(int i=0;i<36;i++)if(!mc.player.getInventory().getItem(i).isEmpty()){var item=new JsonObject();item.addProperty("slot",i);item.add("stack",stackJson(mc.player.getInventory().getItem(i)));inv.add(item);}o.add("inventory",inv);o.add("cursor",stackJson(mc.player.containerMenu.getCarried()));var menu=new JsonArray();for(var slot:mc.player.containerMenu.slots)menu.add(stackJson(slot.getItem()));o.add("menu",menu);}
+            if(mc.player!=null&&mc.level!=null){o.add("playerPosition",WorkConfig.pos(mc.player.blockPosition()));var feet=new JsonObject();feet.addProperty("x",mc.player.getX());feet.addProperty("y",mc.player.getY());feet.addProperty("z",mc.player.getZ());o.add("playerFeet",feet);o.addProperty("levels",mc.player.experienceLevel);var inv=new JsonArray();for(int i=0;i<36;i++)if(!mc.player.getInventory().getItem(i).isEmpty()){var item=new JsonObject();item.addProperty("slot",i);item.add("stack",stackJson(mc.player.getInventory().getItem(i)));inv.add(item);}o.add("inventory",inv);o.add("cursor",stackJson(mc.player.containerMenu.getCarried()));var menu=new JsonArray();for(var slot:mc.player.containerMenu.slots)menu.add(stackJson(slot.getItem()));o.add("menu",menu);}
             Files.writeString(journal,o.toString()+"\n",StandardOpenOption.CREATE,StandardOpenOption.APPEND);
         }catch(Exception e){running=false;throw new IllegalStateException("任务日志写入失败",e);}
     }
@@ -91,7 +93,7 @@ public final class Robot {
         if(!(mc.hitResult instanceof BlockHitResult hit)){say("请瞄准目标方块");return;}BlockPos p=hit.getBlockPos();
         switch(type){
             case "corner1","corner2"->{var bounds=cfg.root.get("platformBounds");JsonObject o=bounds==null||bounds.isJsonNull()?new JsonObject():bounds.getAsJsonObject();o.add(type.equals("corner1")?"min":"max",WorkConfig.pos(p));cfg.root.add("platformBounds",o);}
-            case "craft","smith","anvil"->{String key=type.equals("craft")?"crafting":type.equals("smith")?"smithing":"anvils";var a=new JsonArray();a.add(WorkConfig.pos(p));cfg.root.getAsJsonObject("workstations").add(key,a);}
+            case "craft","smith","anvil","grind"->{String key=switch(type){case "craft"->"crafting";case "smith"->"smithing";case "grind"->"grindstones";default->"anvils";};var a=new JsonArray();a.add(WorkConfig.pos(p));cfg.root.getAsJsonObject("workstations").add(key,a);}
             case "packing"->cfg.root.getAsJsonObject("packing").add("placement",WorkConfig.pos(p.relative(hit.getDirection())));
             case "output"->cfg.root.getAsJsonObject("packing").add("outputContainer",WorkConfig.pos(p));
         }cfg.save();say(type+" = "+p.toShortString());
@@ -132,17 +134,39 @@ public final class Robot {
         var matcher=java.util.regex.Pattern.compile("^<([^>]+)>\\s+((?i:good|pause|continue|skip))\\s*$").matcher(text);
         if(matcher.matches()&&mc.getConnection()!=null&&mc.getConnection().getOnlinePlayers().stream().anyMatch(p->p.getProfile().name().equals(matcher.group(1))))playerChat(matcher.group(1),matcher.group(2));
     }
-    public void cancel(){awaitingDelivery=false;pause("取消：保留现场物资");queue.clear();food.reset();awaitingGood=false;state="CANCELLED";uncertain=false;record("CANCELLED");}
-    void sprintKey(boolean down){var key=mc.options.keySprint;if(mc.options.toggleSprint().get()){if(key.isDown()!=down)key.setDown(true);}else key.setDown(down);}
-    void release(){navigating=false;mc.options.keyUp.setDown(false);mc.options.keyJump.setDown(false);sprintKey(false);mc.options.keyAttack.setDown(false);if(mc.player!=null)mc.player.setSprinting(false);}
+    public void cancel(){
+        awaitingDelivery=false;pause("取消：保留现场物资");state="CANCELLED";
+        try{record("CANCELLED");}finally{
+            queue.clear();if(planning!=null)planning.cancel(false);planning=null;
+            stock.clear();plans.clear();basePlan=null;batchBoxes.clear();activePacking=null;batchCenter=null;
+            food.reset();trading.reset();observer.reset();AnvilSupply.reset(this);protectedSlots.clear();
+            awaitingGood=false;manualPaused=false;uncertain=false;mining=false;waitingReason="";
+            completed=0;deliveredKits=0;restockAcks=0;stepStart=ticks;lastNotice="";lastChat=0;
+        }
+        say("旧任务已取消。按开始工作重新扫描；已取出的物品保留原位。");
+    }
+    boolean navigating;
+    float navigationScale;
+    public boolean ownsNavigation(){return running&&navigating;}
+    public float navigationInput(){return navigationScale;}
+    void sprintKey(boolean down){if(mc.options.toggleSprint().get()){if(mc.options.keySprint.isDown()!=down)mc.options.keySprint.setDown(true);}else mc.options.keySprint.setDown(down);}
+    void release(){navigating=false;navigationScale=0;mc.options.keyUp.setDown(false);mc.options.keyJump.setDown(false);sprintKey(false);if(mc.player!=null)mc.player.setSprinting(false);mc.options.keyAttack.setDown(false);}
     public void externalInput(){if(running){uncertain=true;pause("外部库存操作，必须对账");}}
     void require(boolean value,String message){if(!value)throw new IllegalStateException(message);}
     public void start(){
         try{
             var settings=RobotSettings.INSTANCE;
+            bulkMode=settings.workMode.getOptionListValue()==RobotSettings.WorkMode.BULK;
+            allowOldEquipment=bulkMode||settings.useOldEquipment.getBooleanValue();toolName=null;
             taskBoxBlocks=settings.outputBlocks();scanLength=settings.scanLength.getIntegerValue();scanWidth=settings.scanWidth.getIntegerValue();scanHeight=settings.scanHeight.getIntegerValue();requestedKits=settings.manual()?settings.quantity.getIntegerValue():-1;
             allowTrading=settings.trading.getBooleanValue();allowSpareAnvils=settings.spareAnvils.getBooleanValue();
             kit.clear();for(var target:kitTemplate){if(!settings.elytra.getBooleanValue()&&target.key().equals("elytra"))continue;if(!settings.shield.getBooleanValue()&&target.key().equals("shield"))continue;var ench=new TreeMap<>(target.ench());if(!settings.swiftSneak.getBooleanValue())ench.remove("minecraft:swift_sneak");if(!settings.soulSpeed.getBooleanValue())ench.remove("minecraft:soul_speed");kit.add(new Target(target.key(),target.item(),target.slot(),Map.copyOf(ench)));}
+            if(bulkMode){
+                requestedKits=settings.bulkQuantity.getIntegerValue();var item=(RobotSettings.BulkItem)settings.bulkItem.getOptionListValue();
+                var ench=item==RobotSettings.BulkItem.ELYTRA?Map.of("minecraft:unbreaking",3,"minecraft:mending",1):Map.of("minecraft:efficiency",5,"minecraft:silk_touch",1,"minecraft:unbreaking",3,"minecraft:mending",1);
+                toolName=item==RobotSettings.BulkItem.ELYTRA?null:"挖山镐";
+                kit.clear();for(int slot=0;slot<27;slot++)kit.add(new Target("bulk_"+slot,item.id,slot,ench));
+            }
             require(mc.player!=null&&mc.level!=null,"请进入世界");require(queue.isEmpty(),"已有任务，请继续或取消");
             require(!mc.player.isCreative()&&!mc.player.isSpectator(),"只支持生存模式");
             require(cfg.root.get("serverKey")!=null&&!cfg.root.get("serverKey").isJsonNull()&&cfg.root.get("serverKey").getAsString().equals(server()),"请 /aem bind 绑定服务器");
@@ -156,7 +180,7 @@ public final class Robot {
             require(36-protectedSlots.size()>=16,"至少需要 16 个空背包槽；启动时已有物品全部保护");
             require(java.util.stream.IntStream.range(0,9).anyMatch(i->!protectedSlots.contains(i)),"需要一个空快捷栏槽回收任务盒");
             observer.connect();task=UUID.randomUUID().toString();server=server();dimension=dimension();completed=0;uncertain=false;mining=false;awaitingGood=false;manualPaused=false;restockAcks=0;planning=null;
-            batchCenter=mc.player.blockPosition().immutable();batchBoxes.clear();activePacking=null;AnvilSupply.reset(this);trading.reset();food.reset();deliveredKits=0;
+            batchCenter=mc.player.blockPosition().immutable();batchBoxes.clear();activePacking=null;basePlan=null;AnvilSupply.reset(this);trading.reset();food.reset();deliveredKits=0;
             record("START");queue.add(new DiscoverBoxes());running=true;stepStart=ticks;state="SCANNING";
         }catch(Exception e){say(e.getMessage());}
     }
@@ -171,7 +195,7 @@ public final class Robot {
             food.tick();
             if(queue.peek().tick()){queue.remove();stepStart=ticks;}
         }catch(Waiting e){state="WAITING_MATERIAL_OR_XP";waitingReason=e.getMessage();record("WAITING "+waitingReason);awaitingGood=true;notice(e.getMessage()+"；补充后请任意玩家发送 good");pause("等待玩家发送 good");}
-        catch(Exception e){uncertain=true;state="RECOVERY_REQUIRED";pause(e.getMessage()==null?e.toString():e.getMessage());}
+        catch(Exception e){uncertain=true;state="RECOVERY_REQUIRED";pause(e.getMessage()==null?e.toString():e.getMessage());say("重新扫描：按 "+RobotSettings.INSTANCE.cancel.getKeybind().getKeysDisplayString()+" 取消旧任务，或输入 /aem cancel，再开始工作。");}
     }
     // The discovery origin and the resulting batch are fixed for this start, including restock waits.
     final class DiscoverBoxes implements Step {
@@ -222,9 +246,9 @@ public final class Robot {
     int available(Predicate<ItemStack> p){return count(p)+inventoryCount(p);}
     boolean prepare(){
         state="PLANNING";plans.clear();var missing=new ArrayList<String>();
-        Map<String,Integer> budget=new LinkedHashMap<>(Map.of("minecraft:diamond",40,"minecraft:stick",12,"minecraft:netherite_ingot",11,"minecraft:netherite_upgrade_smithing_template",11,"minecraft:bow",1));
-        if(kit.stream().anyMatch(t->t.key().equals("elytra")))budget.put("minecraft:elytra",1);
-        if(kit.stream().anyMatch(t->t.key().equals("shield")))budget.put("minecraft:shield",1);
+        basePlan=new BaseEquipmentPlan(this);
+        Map<String,Integer> budget=new LinkedHashMap<>(basePlan.materials);
+        for(var target:kit)if(!target.item().startsWith("minecraft:netherite_")&&!target.item().startsWith("minecraft:diamond_"))budget.merge(target.item(),1,Integer::sum);
         budget.forEach((id,n)->{int deficit=n-available(base(id));if(deficit>0&&!trading.offered(base(id)))missing.add(label(id)+" 缺 "+deficit);});
         var needs=new TreeMap<String,Integer>();for(var t:kit)t.ench.forEach((e,l)->needs.merge(e+"@"+l,1,Integer::sum));
         for(var n:needs.entrySet()){String[] parts=n.getKey().split("@");String id=parts[0];int have;
@@ -232,6 +256,7 @@ public final class Robot {
             else {have=bookCount(id,Integer.parseInt(parts[1]));if(have<n.getValue())missing.add(label(id)+parts[1]+"级附魔书：需要 "+n.getValue()+"，库存 "+have+"，缺少 "+(n.getValue()-have));}}
         if(!missing.isEmpty()&&trading.enabled()&&!trading.scanned){prepend(List.of(trading.new Discover(),Robot.this::prepare));return true;}
         if(AnvilSupply.available(this)==null&&(!allowSpareAnvils||AnvilSupply.carried(this)==null&&count(AnvilSupply::spare)==0))missing.add("铁砧缺货：没有可用工作站"+(allowSpareAnvils?"，原料箱内也没有备用铁砧":"，设置禁止取出备用铁砧"));
+        if(basePlan.needsGrinding()&&Grinding.station(this)==null)missing.add("砂轮缺货：附魔钻石半成品必须先去除附魔，请在工坊内放置砂轮");
         if(!missing.isEmpty()){
             // Rebuild the observations when resumed, before trying the same planning step.
             trading.scanned=false;queue.addFirst(new Scan());throw new Waiting("缺货："+String.join("；",missing));
@@ -243,7 +268,7 @@ public final class Robot {
         bookStacks.addAll(trading.planningBooks(needs));
         for(ItemStack stack:bookStacks)if(stack.is(Items.ENCHANTED_BOOK)&&Stacks.ench(stack,true).size()==1){var e=Stacks.ench(stack,true).entrySet().iterator().next();String key=e.getKey()+"@"+e.getValue();if(needs.containsKey(key)||(UpgradeBooks.supported(e.getKey())&&e.getValue()>=1&&e.getValue()<=3))pool.computeIfAbsent(key,k->new TreeMap<>()).merge(Stacks.penalty(stack),stack.getCount(),Integer::sum);}
         if(planning==null){var weights=new HashMap<String,Integer>();for(var t:kit)for(String id:t.ench.keySet())weights.put(id,Stacks.multiplier(id,mc));planning=java.util.concurrent.CompletableFuture.supplyAsync(()->{Allocation search=new Allocation(pool,weights,System.nanoTime()+5_000_000_000L);search.items(0,new ArrayList<>(),0);if(search.best==null)throw new IllegalStateException("PLAN_INFEASIBLE");return search.best;});return false;}if(!planning.isDone())return false;plans.addAll(planning.join());
-        int total=plans.stream().mapToInt(p->p.node.total()).sum();if(mc.player.experienceLevel<total)throw new Waiting("经验不足：当前 "+mc.player.experienceLevel+"，整盒需要 "+total+" 级");say("最优整盒费用 "+total+" 级；开始制作");record("PLAN levels="+total);
+        int total=plans.stream().mapToInt(p->p.node.total()).sum();if(mc.player.experienceLevel<total)throw new Waiting("经验不足：当前 "+mc.player.experienceLevel+"，整盒需要 "+total+" 级");say("最优整盒费用 "+total+" 级；开始制作");record("PLAN levels="+total);record(basePlan.summary());
         List<Step> actions=new ArrayList<>();
         actions.add(new Open(packing(),ShulkerBoxMenu.class));
         actions.add(()->{require(taskBoxBlocks.contains(mc.level.getBlockState(packing()).getBlock()),"任务盒类型不在设置的产物盒列表中");for(int i=0;i<27;i++)require(mc.player.containerMenu.getSlot(i).getItem().isEmpty(),"任务盒在启动后出现杂物，停止制作");close();return true;});
@@ -253,13 +278,13 @@ public final class Robot {
         actions.add(()->{scheduleDelivery();return true;});
         queue.addAll(actions);return true;
     }
-    int bookCount(String id,int level){Predicate<ItemStack> p=s->s.is(Items.ENCHANTED_BOOK)&&Stacks.ench(s,true).equals(Map.of(id,level));return available(p)+trading.potential(p,14);}
+    int bookCount(String id,int level){Predicate<ItemStack> p=s->s.is(Items.ENCHANTED_BOOK)&&Stacks.ench(s,true).equals(Map.of(id,level));return available(p)+trading.potential(p,kit.size());}
     final class Allocation {
         final Map<String,TreeMap<Integer,Integer>> pool;final Map<String,Integer> weights;final long deadline;List<Planned> best;int bestCost=Integer.MAX_VALUE;
         Allocation(Map<String,TreeMap<Integer,Integer>> p,Map<String,Integer> weights,long d){pool=p;this.weights=Map.copyOf(weights);deadline=d;}
         void items(int i,List<Planned> chosen,int cost){if(System.nanoTime()>deadline)throw new IllegalStateException("PLAN_TIMEOUT");if(cost>=bestCost)return;if(i==kit.size()){best=List.copyOf(chosen);bestCost=cost;return;}var entries=new ArrayList<>(kit.get(i).ench.entrySet());entries.sort(Map.Entry.comparingByKey());books(i,entries,0,new ArrayList<>(),chosen,cost);}
         void books(int item,List<Map.Entry<String,Integer>> entries,int k,List<AnvilPlanner.Book> books,List<Planned> chosen,int cost){
-            if(k==entries.size()){AnvilPlanner.Node node;try{node=new AnvilPlanner(books,kit.get(item).ench,deadline).solve(0);}catch(IllegalStateException failure){if("PLAN_INFEASIBLE".equals(failure.getMessage()))return;throw failure;}chosen.add(new Planned(kit.get(item),List.copyOf(books),node));items(item+1,chosen,cost+node.total());chosen.removeLast();return;}
+            if(k==entries.size()){AnvilPlanner.Node node;try{node=new AnvilPlanner(books,kit.get(item).ench,deadline).solve(0,toolName==null?0:1);}catch(IllegalStateException failure){if("PLAN_INFEASIBLE".equals(failure.getMessage()))return;throw failure;}chosen.add(new Planned(kit.get(item),List.copyOf(books),node));items(item+1,chosen,cost+node.total());chosen.removeLast();return;}
             String id=entries.get(k).getKey();
             if(UpgradeBooks.supported(id)){
                 var levels=UpgradeBooks.select(available(id,1),available(id,2),available(id,3));if(levels.isEmpty())return;
@@ -280,23 +305,34 @@ public final class Robot {
     void scheduleEnchantment(Planned p){var list=new ArrayList<Step>();
         Map<AnvilPlanner.Node,ItemStack> outputs=new IdentityHashMap<>();
         list.add(()->{outputs.put(findLeaf(p.node,0),mc.player.getInventory().getItem(inventorySlot(base(p.target.item))).copy());var used=new HashSet<Integer>();for(int i=0;i<p.books.size();i++){var b=p.books.get(i);int slot=-1;for(int j=0;j<36;j++)if(!protectedSlots.contains(j)&&!used.contains(j)&&Stacks.book(mc.player.getInventory().getItem(j),b.enchantment(),b.level(),b.penalty())){slot=j;break;}require(slot>=0,"任务背包缺少独立附魔书: "+label(b.enchantment()));used.add(slot);outputs.put(findLeaf(p.node,i+1),mc.player.getInventory().getItem(slot).copyWithCount(1));}return true;});
-        enchantSteps(p.node,outputs,list);prepend(list);
+        enchantSteps(p.node,outputs,list,p.node);prepend(list);
     }
     static String[] pattern(String type){return switch(type){case "helmet"->new String[]{"DDD","D D","   "};case "chestplate"->new String[]{"D D","DDD","DDD"};case "leggings"->new String[]{"DDD","D D","D D"};case "boots"->new String[]{"D D","D D","   "};case "sword"->new String[]{" D "," D "," S "};case "pickaxe"->new String[]{"DDD"," S "," S "};case "shovel"->new String[]{" D "," S "," S "};case "axe"->new String[]{"DD ","DS "," S "};case "hoe"->new String[]{"DD "," S "," S "};default->throw new IllegalArgumentException(type);};}
     AnvilPlanner.Node findLeaf(AnvilPlanner.Node n,int leaf){if(n.isLeaf())return n.leaf()==leaf?n:null;var a=findLeaf(n.left(),leaf);return a==null?findLeaf(n.right(),leaf):a;}
-    boolean matches(ItemStack s,Target t){return !s.isEmpty()&&Stacks.id(s).equals(t.item)&&s.getCount()==1&&s.getDamageValue()==0&&Stacks.ench(s,false).equals(t.ench);}
-    void enchantSteps(AnvilPlanner.Node n,Map<AnvilPlanner.Node,ItemStack> outputs,List<Step> list){if(n.isLeaf())return;enchantSteps(n.left(),outputs,list);enchantSteps(n.right(),outputs,list);
+    boolean matches(ItemStack s,Target t){return !s.isEmpty()&&Stacks.id(s).equals(t.item)&&s.getCount()==1&&s.getDamageValue()==0&&Stacks.ench(s,false).equals(t.ench)&&(toolName==null?!s.has(DataComponents.CUSTOM_NAME):s.has(DataComponents.CUSTOM_NAME)&&toolName.equals(s.get(DataComponents.CUSTOM_NAME).getString()));}
+    void enchantSteps(AnvilPlanner.Node n,Map<AnvilPlanner.Node,ItemStack> outputs,List<Step> list,AnvilPlanner.Node root){if(n.isLeaf())return;enchantSteps(n.left(),outputs,list,root);enchantSteps(n.right(),outputs,list,root);
         list.add(new AnvilSupply(this));
         list.add(new Put(s->ItemStack.isSameItemSameComponents(s,outputs.get(n.left())),0,1));list.add(new Put(s->ItemStack.isSameItemSameComponents(s,outputs.get(n.right())),1,1));
-        list.add(new TakeResult(2,s->{ItemStack left=outputs.get(n.left()),right=outputs.get(n.right());var ench=new TreeMap<>(Stacks.ench(left,left.is(Items.ENCHANTED_BOOK)));Stacks.ench(right,true).forEach((id,level)->ench.merge(id,level,(a,b)->Math.min(UpgradeBooks.supported(id)?3:Math.max(a,b),a.equals(b)?a+1:Math.max(a,b))));return Stacks.id(s).equals(Stacks.id(left))&&Stacks.ench(s,s.is(Items.ENCHANTED_BOOK)).equals(ench)&&Stacks.penalty(s)==n.penalty();},n.cost()){
+        boolean rename=n==root&&toolName!=null;
+        if(rename)list.add(new RenameTool());
+        list.add(new TakeResult(2,s->{ItemStack left=outputs.get(n.left()),right=outputs.get(n.right());var ench=new TreeMap<>(Stacks.ench(left,left.is(Items.ENCHANTED_BOOK)));Stacks.ench(right,true).forEach((id,level)->ench.merge(id,level,(a,b)->Math.min(UpgradeBooks.supported(id)?3:Math.max(a,b),a.equals(b)?a+1:Math.max(a,b))));return Stacks.id(s).equals(Stacks.id(left))&&Stacks.ench(s,s.is(Items.ENCHANTED_BOOK)).equals(ench)&&Stacks.penalty(s)==n.penalty()&&(!rename||s.has(DataComponents.CUSTOM_NAME)&&toolName.equals(s.get(DataComponents.CUSTOM_NAME).getString()));},n.cost()){
             @Override void captured(ItemStack s){outputs.put(n,s.copy());}
         });
+    }
+    final class RenameTool implements Step {
+        long sent,revision;AnvilMenu menu;
+        public boolean tick(){
+            if(menu==null){require(mc.player.containerMenu instanceof AnvilMenu,"命名必须使用铁砧菜单");menu=(AnvilMenu)mc.player.containerMenu;revision=revisions.getOrDefault(menu.containerId,0L);sent=ticks;menu.setItemName(toolName);mc.getConnection().send(new net.minecraft.network.protocol.game.ServerboundRenameItemPacket(toolName));record("RENAME INTENT "+toolName);return false;}
+            require(mc.player.containerMenu==menu,"命名期间菜单改变");require(ticks-sent<120,"命名未收到服务端确认，禁止重发");
+            var result=menu.getSlot(2).getItem();return ticks>sent+1&&revisions.getOrDefault(menu.containerId,0L)>revision&&result.has(DataComponents.CUSTOM_NAME)&&toolName.equals(result.get(DataComponents.CUSTOM_NAME).getString());
+        }
     }
     final class Fetch implements Step {
         final Predicate<ItemStack> predicate;final int amount;boolean scheduled;
         Fetch(Predicate<ItemStack> p,int n){predicate=p;amount=n;}
         public boolean tick(){if(scheduled)return true;int have=0;for(int i=0;i<36;i++)if(!protectedSlots.contains(i)&&predicate.test(mc.player.getInventory().getItem(i)))have+=mc.player.getInventory().getItem(i).getCount();int remaining=amount-have;if(remaining<=0)return true;
-            var steps=new ArrayList<Step>();for(Source src:stock)if(predicate.test(src.stack)&&remaining>0){int take=Math.min(remaining,src.stack.getCount());ItemStack expected=src.stack.copy();steps.add(new SourceFetch(Robot.this,predicate,amount,src,take,expected));src.stack.shrink(take);remaining-=take;}
+            var preferred=new ArrayList<>(stock);preferred.sort(Comparator.comparing((Source s)->!SourceFetch.openingClear(mc.level,s.pos())));
+            var steps=new ArrayList<Step>();for(Source src:preferred)if(predicate.test(src.stack)&&remaining>0){int take=Math.min(remaining,src.stack.getCount());ItemStack expected=src.stack.copy();steps.add(new SourceFetch(Robot.this,predicate,amount,src,take,expected));src.stack.shrink(take);remaining-=take;}
             if(remaining>0){if(trading.offered(predicate))steps.add(trading.new Acquire(predicate,amount));else {queue.addFirst(new Scan());throw new Waiting("物资缺货或外部库存改变，请核对任务所需原料");}}scheduled=true;prepend(steps);return false;
         }
     }
@@ -349,10 +385,13 @@ public final class Robot {
             if(mc.player.containerMenu!=mc.player.inventoryMenu){require(type.isInstance(mc.player.containerMenu),"菜单类型错误");if(ticks-start>3){if(type==AnvilMenu.class)AnvilOpenRetry.complete(this);return true;}return false;}if(ticks-start>=100&&type==AnvilMenu.class&&AnvilOpenRetry.retry(Robot.this,this))return false;require(ticks-start<100,"工作站或容器打开失败: "+pos.toShortString());return false;}
     }
     void look(Vec3 p){Vec3 d=p.subtract(mc.player.getEyePosition());mc.player.setYRot((float)(Math.toDegrees(Math.atan2(d.z,d.x))-90));mc.player.setXRot((float)-Math.toDegrees(Math.atan2(d.y,Math.sqrt(d.x*d.x+d.z*d.z))));}
-    boolean walkable(BlockPos p){return new PlayerNavigation.Terrain(this).standable(p);}
-    final class Navigator extends PlayerNavigation {
+    boolean walkable(BlockPos p){var terrain=new PlayerNavigation.Terrain(this);return terrain.column(p.getX()*2+1,p.getZ()*2+1).stream().anyMatch(v->Math.abs(v.y-p.getY())<.6);}
+    final class Navigator implements Step {
+        final PlayerNavigation navigation;
         Navigator(BlockPos p){this(p,false);}
-        Navigator(BlockPos p,boolean pickup){super(Robot.this,p,pickup);}
+        Navigator(BlockPos p,boolean pickup){navigation=new PlayerNavigation(Robot.this,p,pickup);}
+        Navigator(net.minecraft.world.entity.npc.villager.Villager merchant){navigation=new PlayerNavigation(Robot.this,merchant);}
+        public boolean tick(){return navigation.tick();}
     }
     void scheduleDelivery(){state="DELIVERING";var actions=new ArrayList<Step>();actions.add(new Open(packing(),ShulkerBoxMenu.class));actions.add(()->{verifyBox();close();return true;});actions.add(new RecoverBox());actions.add(new Open(cfg.output(),AbstractContainerMenu.class));actions.add(()->{int inv=inventorySlot(this::validBox);int to=-1;for(int i=0;i<mc.player.containerMenu.slots.size();i++)if(mc.player.containerMenu.getSlot(i).container!=mc.player.getInventory()&&mc.player.containerMenu.getSlot(i).getItem().isEmpty()){to=i;break;}require(to>=0,"交付箱空间不足");int dest=to;prepend(List.of(new Move(menuSlot(inv),dest,1,mc.player.getInventory().getItem(inv)),()->{require(validBox(mc.player.containerMenu.getSlot(dest).getItem()),"交付盒内容核验失败");close();deliveredKits++;record("DELIVERED");if(deliveredKits<batchBoxes.size()){activePacking=batchBoxes.get(deliveredKits);planning=null;trading.reset();queue.add(new Scan());queue.add(Robot.this::prepare);}return true;}));return true;});prepend(actions);}
     void verifyBox(){for(int i=0;i<27;i++){int slot=i;var target=kit.stream().filter(t->t.slot()==slot).findFirst();if(target.isPresent())require(matches(mc.player.containerMenu.getSlot(i).getItem(),target.get()),"盒内装备不符: "+target.get().key());else require(mc.player.containerMenu.getSlot(i).getItem().isEmpty(),"盒内混入余料");}}
@@ -364,7 +403,7 @@ public final class Robot {
             mining=false;mc.gameMode.stopDestroyBlock();for(int i=0;i<36;i++)if(!protectedSlots.contains(i)&&validBox(mc.player.getInventory().getItem(i))){release();return true;}require(ticks-start<1200,"任务盒拾取未确认，不能重复制作");
             var drops=mc.level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,new AABB(packing()).inflate(4),e->validBox(e.getItem()));
             require(drops.size()<=1,"多个相同成品盒掉落，必须核对");if(drops.isEmpty()){release();return false;}
-            var drop=drops.getFirst();BlockPos destination=BlockPos.containing(drop.getX(),Math.ceil(drop.getY()-.05),drop.getZ());if(!walkable(destination)){release();return false;}
+            BlockPos destination=drops.getFirst().blockPosition();if(!walkable(destination)){release();return false;}
             if(!destination.equals(pickupTarget)){pickupTarget=destination.immutable();pickupNav=new Navigator(pickupTarget,true);record("PICKUP ROUTE "+pickupTarget);}pickupNav.tick();return false;}
     }
 }

@@ -26,7 +26,7 @@ public final class AutoEquipmentClient implements ClientModInitializer {
             root.then(literal("status").executes(c->{robot.status();return 1;}));
             root.then(literal("cancel").executes(c->{robot.cancel();return 1;}));
             root.then(literal("bind").executes(c->{robot.bind();return 1;}));
-            var mark=literal("mark");for(String type:new String[]{"corner1","corner2","craft","smith","anvil","packing","output"})mark.then(literal(type).executes(c->{robot.mark(type);return 1;}));
+            var mark=literal("mark");for(String type:new String[]{"corner1","corner2","craft","smith","anvil","grind","packing","output"})mark.then(literal(type).executes(c->{robot.mark(type);return 1;}));
             root.then(mark);dispatcher.register(root);
         });
     }

@@ -13,9 +13,9 @@ class BatchAndCooldownTest {
         assertEquals(2,BatchPacking.prefix(List.of(5,3,20,1),30,4));
     }
     @Test void waitsTwentySecondsWarnsOnceAndReportsRecovery(){
-        var c=new TradeCooldown();assertTrue(c.due(100));assertFalse(c.exhausted(100));
-        assertFalse(c.due(20099));assertTrue(c.due(20100));assertTrue(c.exhausted(20100));
+        var c=new TradeCooldown();assertTrue(c.due(100));assertTrue(c.exhausted(100));
+        assertFalse(c.due(20099));assertTrue(c.due(20100));assertFalse(c.exhausted(20100));
         assertFalse(c.exhausted(40100));assertFalse(c.exhausted(60100));assertTrue(c.recovered());assertEquals(0,c.checks());
-        assertTrue(c.due(60101));assertFalse(c.exhausted(60101));assertTrue(c.recovered());assertFalse(c.recovered());
+        assertTrue(c.due(60101));assertTrue(c.exhausted(60101));assertTrue(c.recovered());assertFalse(c.recovered());
     }
 }

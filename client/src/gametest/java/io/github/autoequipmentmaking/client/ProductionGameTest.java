@@ -36,7 +36,7 @@ public class ProductionGameTest implements FabricClientGameTest {
     final java.util.concurrent.atomic.AtomicReference<ItemStack> withheldBook=new java.util.concurrent.atomic.AtomicReference<>();
     @Override public void runTest(ClientGameTestContext context){
         // Production fixtures always represent the complete kit, independently of saved UI-test settings.
-        context.runOnClient(mc->{var s=RobotSettings.INSTANCE;s.quantityMode.setOptionListValue(RobotSettings.QuantityMode.AUTO);
+        context.runOnClient(mc->{var s=RobotSettings.INSTANCE;s.workMode.setOptionListValue(RobotSettings.WorkMode.NEWCOMER);s.useOldEquipment.setBooleanValue(true);s.quantityMode.setOptionListValue(RobotSettings.QuantityMode.AUTO);
             s.outputBoxes.setStrings(List.of("minecraft:light_blue_shulker_box"));s.scanLength.setIntegerValue(21);s.scanWidth.setIntegerValue(21);s.scanHeight.setIntegerValue(5);
             for(var option:List.of(s.swiftSneak,s.soulSpeed,s.elytra,s.shield,s.trading,s.spareAnvils))option.setBooleanValue(true);
             var r=AutoEquipmentClient.robot;r.kit.clear();r.kit.addAll(r.kitTemplate);

@@ -7,7 +7,8 @@
   "workstations": {
     "crafting": [],
     "smithing": [],
-    "anvils": []
+    "anvils": [],
+    "grindstones": []
   },
   "packing": {
     "placement": null,
